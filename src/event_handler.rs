@@ -31,6 +31,6 @@ pub fn handle_key_code(
             let new_state = app_state.handle_move_back()?;
             return Ok(new_state);
         }
-        _ => panic!("test"),
+        _ => return Ok(app_state.clone())
     }
 }
