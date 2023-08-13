@@ -1,4 +1,4 @@
-# Slingshot
+# Slingshot v0.0.1
 <img src="https://s11.gifyu.com/images/ScB6K.gif">
 Slingshot is a lightweight and minimal tool to intuitively navigate across folders in the terminal. It allows the user to quickly filter through files in any directory, and open them with a text editor (nvim by default).
 
