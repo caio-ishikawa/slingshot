@@ -1,12 +1,16 @@
 use crate::file;
+use crate::styles;
 use crossterm::event::KeyCode;
-use crossterm::style::{Attribute, SetAttribute};
+use crossterm::style::{Attribute, SetAttribute, SetForegroundColor, ResetColor};
 use crossterm::{cursor, QueueableCommand};
+use crossterm::terminal;
 use std::borrow::Cow;
 use std::env;
+use std::fs;
 use std::error::Error;
 use std::io::{stdout, Write};
 use std::process::Command;
+use std::cmp;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -15,6 +19,7 @@ pub struct AppState {
     pub displayed_paths: Vec<file::FileData>,
     pub selected_index: usize,
     pub search_term: String,
+    pub message: String,
 }
 
 impl AppState {
@@ -28,6 +33,11 @@ impl AppState {
             self.selected_index,
             &mut stdout,
         );
+
+        let (_, height) = terminal::size()?;
+        let t_height = cmp::max(height, 1) - 1;
+        stdout.queue(cursor::MoveTo(0, t_height))?;
+        print!("{}{}{}", SetForegroundColor(styles::ERR),self.message, ResetColor);
 
         stdout.queue(cursor::MoveTo(0, 0))?;
         print!(
@@ -93,6 +103,7 @@ impl AppState {
             displayed_paths: formatted_paths.clone(),
             selected_index: 0,
             search_term: "".to_owned(),
+            message: "".to_owned()
         });
     }
 
@@ -116,7 +127,30 @@ impl AppState {
             displayed_paths: final_paths.clone(),
             selected_index: 0,
             search_term: "".to_owned(),
+            message: "".to_owned()
         });
+    }
+
+    pub fn handle_create(&mut self) {
+        // the slash needs to be at the end
+        // initially will only support creation in current dir
+        if self.search_term.contains("/") {
+            if let Err(e) = fs::create_dir(&self.search_term) {
+                self.message = e.to_string();
+                return
+            } 
+        }
+
+        let paths = file::get_paths(&self.curr_absolute_path);
+        let updated_file_data_res = file::generate_file_data(paths);
+        if let Ok(value) = updated_file_data_res {
+            self.search_term = "".to_owned();
+            self.inner_paths = value.clone();
+            self.displayed_paths = value.clone();
+        } else if let Err(e) = updated_file_data_res {
+            self.message = e.to_string();
+            return
+        }
     }
 }
 
@@ -133,8 +167,10 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
         displayed_paths: formatted_paths.clone(),
         selected_index: 0,
         search_term: "".to_owned(),
+        message: "".to_owned()
     });
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -166,6 +202,7 @@ mod tests {
             displayed_paths: test_file_data,
             selected_index: 0,
             search_term: "".to_owned(),
+            message: "".to_owned()
         };
 
         struct TestCase {
@@ -219,6 +256,7 @@ mod tests {
             displayed_paths: test_file_data,
             selected_index: 0,
             search_term: "test".to_owned(),
+            message: "".to_owned()
         };
 
         struct TestCase {
