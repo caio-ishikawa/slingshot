@@ -1,10 +1,13 @@
 use crate::file;
 use crossterm::event::KeyCode;
-use crossterm::style::{Attribute, SetAttribute};
+use crossterm::style::{Attribute, ResetColor, SetAttribute};
+use crossterm::terminal;
 use crossterm::{cursor, QueueableCommand};
 use std::borrow::Cow;
+use std::cmp;
 use std::env;
 use std::error::Error;
+use std::fs;
 use std::io::{stdout, Write};
 use std::process::Command;
 
@@ -15,6 +18,7 @@ pub struct AppState {
     pub displayed_paths: Vec<file::FileData>,
     pub selected_index: usize,
     pub search_term: String,
+    pub message: String,
 }
 
 impl AppState {
@@ -28,6 +32,11 @@ impl AppState {
             self.selected_index,
             &mut stdout,
         );
+
+        let (_, height) = terminal::size()?;
+        let t_height = cmp::max(height, 1) - 1;
+        stdout.queue(cursor::MoveTo(0, t_height))?;
+        print!("{}{}", self.message, ResetColor);
 
         stdout.queue(cursor::MoveTo(0, 0))?;
         print!(
@@ -74,7 +83,7 @@ impl AppState {
         self.selected_index = updated_index;
     }
 
-    pub fn handle_move_back(&self) -> Result<AppState, Box<dyn Error>> {
+    pub fn handle_move_back(&mut self) {
         let mut split_dirs: Vec<&str> = self.curr_absolute_path.split("/").collect();
         split_dirs.pop();
 
@@ -84,39 +93,106 @@ impl AppState {
             .filter(|c| !c.is_whitespace())
             .collect();
 
-        let paths_data = file::get_paths(&next_dir);
-        let formatted_paths = file::generate_file_data(paths_data)?;
-
-        return Ok(AppState {
-            curr_absolute_path: next_dir,
-            inner_paths: formatted_paths.clone(),
-            displayed_paths: formatted_paths.clone(),
-            selected_index: 0,
-            search_term: "".to_owned(),
-        });
-    }
-
-    pub fn handle_enter(
-        &self,
-        file_data: Cow<file::FileData>,
-        curr_dir: &str,
-    ) -> Result<AppState, Box<dyn Error>> {
-        std::env::set_current_dir(&curr_dir)
-            .expect("HANDLE ENTER ERR: Failed to set current directory");
-        if file_data.shortname.contains(".") {
-            Command::new("nvim").arg(&file_data.shortname).status()?;
+        if let Err(e) = std::env::set_current_dir(&next_dir) {
+            self.message = e.to_string();
+            return;
         }
 
-        let paths = file::get_paths(&file_data.absolute);
-        let final_paths = file::generate_file_data(paths)?;
+        self.update_post_move(&next_dir);
+    }
 
-        return Ok(AppState {
-            curr_absolute_path: file_data.into_owned().absolute,
-            inner_paths: final_paths.clone(),
-            displayed_paths: final_paths.clone(),
-            selected_index: 0,
-            search_term: "".to_owned(),
-        });
+    pub fn handle_enter(&mut self) {
+        let selected = &self.displayed_paths[self.selected_index];
+        if selected.shortname.contains(".") {
+            if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
+                self.message = e.to_string();
+                return;
+            }
+        }
+
+        if let Err(e) = std::env::set_current_dir(&selected.absolute) {
+            self.message = e.to_string();
+            return;
+        }
+
+        self.update_post_move(&selected.absolute.clone());
+    }
+
+    pub fn handle_create(&mut self) {
+        if self.search_term.contains("/") {
+            if let Err(e) = fs::create_dir(&self.search_term) {
+                self.message = e.to_string();
+                return;
+            }
+        } else if self.search_term.contains(".") {
+            if let Err(e) = fs::File::create(self.search_term.clone()) {
+                self.message = e.to_string();
+                return;
+            }
+        }
+
+        self.update_paths();
+        self.message = String::from("File successfully created");
+    }
+
+    pub fn handle_mark_delete(&mut self) {
+        self.displayed_paths[self.selected_index].toggle_mark_for_deletion();
+        let marked_files: Vec<&str> = self
+            .displayed_paths
+            .iter()
+            .filter(|fd| fd.marked_for_deletion)
+            .map(|fd| fd.shortname.as_str())
+            .collect();
+
+        self.message = format!(
+            "Press Ctrl + Y to confirm deletion of files: {:?}",
+            marked_files
+        );
+        return;
+    }
+
+    pub fn handle_confirm_delete(&mut self) {
+        for path in &self.displayed_paths {
+            if path.marked_for_deletion {
+                if let Err(e) = fs::remove_file(&path.absolute) {
+                    self.message = e.to_string();
+                    return;
+                }
+            }
+        }
+
+        self.update_paths();
+        self.message = String::from("Files successfully removed");
+    }
+
+    fn update_paths(&mut self) {
+        let paths = file::get_paths(&self.curr_absolute_path);
+        let updated_file_data_res = file::generate_file_data(paths);
+        if let Ok(value) = updated_file_data_res {
+            self.search_term = "".to_owned();
+            self.inner_paths = value.clone();
+            self.displayed_paths = value.clone();
+        } else if let Err(e) = updated_file_data_res {
+            self.message = e.to_string();
+            return;
+        }
+    }
+
+    fn update_post_move(&mut self, absolute_path: &str) {
+        let paths = file::get_paths(absolute_path);
+        let final_paths = file::generate_file_data(paths);
+
+        if let Ok(value) = final_paths {
+            self.curr_absolute_path = absolute_path.to_owned();
+            self.inner_paths = value.clone();
+            self.displayed_paths = value;
+            self.selected_index = 0;
+            self.search_term = "".to_owned();
+            self.message = "".to_owned();
+        } else if let Err(e) = final_paths {
+            self.message = e.to_string();
+            return;
+        }
     }
 }
 
@@ -133,6 +209,7 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
         displayed_paths: formatted_paths.clone(),
         selected_index: 0,
         search_term: "".to_owned(),
+        message: "".to_owned(),
     });
 }
 
@@ -147,6 +224,7 @@ mod tests {
                 shortname: name.to_owned(),
                 absolute: "".to_owned(),
                 icon: "".to_owned(),
+                marked_for_deletion: false,
             };
             test_file_data.push(fd);
         }
@@ -166,6 +244,7 @@ mod tests {
             displayed_paths: test_file_data,
             selected_index: 0,
             search_term: "".to_owned(),
+            message: "".to_owned(),
         };
 
         struct TestCase {
@@ -219,6 +298,7 @@ mod tests {
             displayed_paths: test_file_data,
             selected_index: 0,
             search_term: "test".to_owned(),
+            message: "".to_owned(),
         };
 
         struct TestCase {

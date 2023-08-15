@@ -11,21 +11,24 @@ Set Width 1200
 Set Height 600
 
 Type "cargo run" Sleep 500ms  Enter
-
 Sleep 1s
 
-Type "a"
-Sleep 1s
-
-Type "s"
-Sleep 1s
+Set TypingSpeed 250ms
+Type "asse"
 Enter
 
-Type "t" 
+Set TypingSpeed 250ms
+Type "test_file.py"
+Ctrl+N
+
+Ctrl+J
+Ctrl+J
+
+Set TypingSpeed 250ms
+Type "test"
+
+Ctrl+D
 Sleep 1s
-Type "e"
-Sleep 2s
-Enter
+Ctrl+y
 
 Sleep 5s
-

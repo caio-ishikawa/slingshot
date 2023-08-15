@@ -10,6 +10,13 @@ pub struct FileData {
     pub shortname: String,
     pub absolute: String,
     pub icon: String,
+    pub marked_for_deletion: bool,
+}
+
+impl FileData {
+    pub fn toggle_mark_for_deletion(&mut self) {
+        self.marked_for_deletion = !self.marked_for_deletion;
+    }
 }
 
 pub fn get_paths(source: &str) -> fs::ReadDir {
@@ -31,6 +38,7 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
                 shortname: last_index.to_owned().to_owned(),
                 absolute: path_str.clone(),
                 icon,
+                marked_for_deletion: false,
             };
 
             output.push(file_data);
@@ -104,9 +112,28 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
 
             stdout.queue(cursor::MoveToColumn(3)).unwrap();
             print!("{}{}", path.icon, ResetColor);
+
+            let fg_color = if path.marked_for_deletion {
+                styles::ERR
+            } else {
+                styles::DEFAULT
+            };
+
+            print!(
+                "{}{}{}{}",
+                SetAttribute(Attribute::Bold),
+                SetForegroundColor(fg_color),
+                path.shortname,
+                ResetColor
+            );
+        } else if path.marked_for_deletion {
+            print!("{}{}{}", SetAttribute(Attribute::Bold), i, ResetColor);
+
+            stdout.queue(cursor::MoveToColumn(3)).unwrap();
+            print!("{}{}", path.icon, ResetColor);
             print!(
                 "{}{}{}",
-                SetAttribute(Attribute::Bold),
+                SetForegroundColor(styles::ERR),
                 path.shortname,
                 ResetColor
             );
@@ -141,6 +168,7 @@ mod file_tests {
                 shortname: shortname.to_owned(),
                 absolute: "test-absolute".to_owned(),
                 icon: "test-icon".to_owned(),
+                marked_for_deletion: false,
             };
             test_file_input.push(file_data);
         }
