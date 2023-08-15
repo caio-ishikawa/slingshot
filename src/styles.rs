@@ -31,11 +31,17 @@ pub const LIGHT_CONTRAST: Color = Color::Rgb {
     b: 0x89,
 };
 
-//pub const ERR: Color = Color::Rgb {
-//r: 0xf7,
-//g: 0x76,
-//b: 0x8e,
-//};
+pub const ERR: Color = Color::Rgb {
+    r: 0xf7,
+    g: 0x76,
+    b: 0x8e,
+};
+
+pub const DEFAULT: Color = Color::Rgb {
+    r: 0xcf,
+    g: 0xc9,
+    b: 0xc2,
+};
 
 pub const FILE_ICON: &str = "󰈔 ";
 pub const FOLDER_ICON: &str = " ";

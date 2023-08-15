@@ -93,28 +93,16 @@ impl AppState {
             .filter(|c| !c.is_whitespace())
             .collect();
 
-        let paths_data = file::get_paths(&next_dir);
-        let formatted_paths = file::generate_file_data(paths_data);
-
-        if let Ok(value) = formatted_paths {
-            self.curr_absolute_path = next_dir;
-            self.inner_paths = value.clone();
-            self.displayed_paths = value;
-            self.selected_index = 0;
-            self.search_term = "".to_owned();
-            self.message = "".to_owned();
-        } else if let Err(e) = formatted_paths {
+        if let Err(e) = std::env::set_current_dir(&next_dir) {
             self.message = e.to_string();
-            return;
+            return
         }
+
+        self.update_post_move(&next_dir);
     }
 
     pub fn handle_enter(&mut self) {
         let selected = &self.displayed_paths[self.selected_index];
-        let curr_dir = &self.curr_absolute_path;
-
-        std::env::set_current_dir(&curr_dir)
-            .expect("HANDLE ENTER ERR: Failed to set current directory");
         if selected.shortname.contains(".") {
             if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
                 self.message = e.to_string();
@@ -122,25 +110,15 @@ impl AppState {
             }
         }
 
-        let paths = file::get_paths(&selected.absolute);
-        let final_paths = file::generate_file_data(paths);
-
-        if let Ok(value) = final_paths {
-            self.curr_absolute_path = selected.absolute.clone();
-            self.inner_paths = value.clone();
-            self.displayed_paths = value;
-            self.selected_index = 0;
-            self.search_term = "".to_owned();
-            self.message = "".to_owned();
-        } else if let Err(e) = final_paths {
+        if let Err(e) = std::env::set_current_dir(&selected.absolute) {
             self.message = e.to_string();
-            return;
+            return
         }
+
+        self.update_post_move(&selected.absolute.clone());
     }
 
     pub fn handle_create(&mut self) {
-        // the slash needs to be at the end
-        // initially will only support creation in current dir
         if self.search_term.contains("/") {
             if let Err(e) = fs::create_dir(&self.search_term) {
                 self.message = e.to_string();
@@ -153,14 +131,62 @@ impl AppState {
             }
         }
 
+        self.update_paths();
+        self.message = String::from("File successfully created");
+    }
+
+    pub fn handle_mark_delete(&mut self) {
+        self.displayed_paths[self.selected_index].toggle_mark_for_deletion();
+        let marked_files: Vec<&str> = self
+            .displayed_paths
+            .iter()
+            .filter(|fd| fd.marked_for_deletion)
+            .map(|fd| fd.shortname.as_str())
+            .collect();
+
+        self.message = format!("Press Ctrl + Y to confirm deletion of files: {:?}", marked_files);
+        return;
+    }
+
+    pub fn handle_confirm_delete(&mut self) {
+        for path in &self.displayed_paths {
+            if path.marked_for_deletion {
+                if let Err(e) = fs::remove_file(&path.absolute) {
+                    self.message = e.to_string();
+                    return
+                }
+            }
+        }
+
+        self.update_paths();
+        self.message = String::from("Files successfully removed");
+    }
+
+    fn update_paths(&mut self) {
         let paths = file::get_paths(&self.curr_absolute_path);
         let updated_file_data_res = file::generate_file_data(paths);
         if let Ok(value) = updated_file_data_res {
             self.search_term = "".to_owned();
             self.inner_paths = value.clone();
             self.displayed_paths = value.clone();
-            self.message = String::from("File successfully created");
         } else if let Err(e) = updated_file_data_res {
+            self.message = e.to_string();
+            return;
+        }
+    }
+
+    fn update_post_move(&mut self, absolute_path: &str) {
+        let paths = file::get_paths(absolute_path);
+        let final_paths = file::generate_file_data(paths);
+
+        if let Ok(value) = final_paths {
+            self.curr_absolute_path = absolute_path.to_owned();
+            self.inner_paths = value.clone();
+            self.displayed_paths = value;
+            self.selected_index = 0;
+            self.search_term = "".to_owned();
+            self.message = "".to_owned();
+        } else if let Err(e) = final_paths {
             self.message = e.to_string();
             return;
         }
@@ -195,6 +221,7 @@ mod tests {
                 shortname: name.to_owned(),
                 absolute: "".to_owned(),
                 icon: "".to_owned(),
+                marked_for_deletion: false,
             };
             test_file_data.push(fd);
         }
