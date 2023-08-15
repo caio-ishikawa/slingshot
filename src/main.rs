@@ -14,7 +14,11 @@ fn start_slingshot(starting_state: &state_handler::AppState) -> Result<(), Box<d
     loop {
         if let event::Event::Key(key_event) = event::read()? {
             if key_event.modifiers != KeyModifiers::NONE {
-                event_handler::handle_key_modifier(key_event.code, key_event.modifiers, &mut app_state)?;
+                event_handler::handle_key_modifier(
+                    key_event.code,
+                    key_event.modifiers,
+                    &mut app_state,
+                )?;
                 app_state.display()?;
             } else {
                 app_state = event_handler::handle_key_code(key_event.code, &mut app_state)?;

@@ -1,11 +1,6 @@
 use crate::state_handler;
-use std::io::{stdout, Write};
 use crossterm::event::{KeyCode, KeyModifiers};
-use std::borrow::Cow;
 use std::error::Error;
-use crossterm::cursor;
-use std::cmp;
-use crossterm::execute;
 
 pub fn handle_key_code(
     key_code: KeyCode,
@@ -21,34 +16,42 @@ pub fn handle_key_code(
             return Ok(app_state.clone());
         }
         KeyCode::Enter => {
-            let new_state = app_state.handle_enter(
-                Cow::Borrowed(&app_state.displayed_paths[app_state.selected_index]),
-                &app_state.curr_absolute_path,
-            )?;
-            return Ok(new_state);
+            app_state.handle_enter();
+            return Ok(app_state.clone());
         }
         KeyCode::Up | KeyCode::Down => {
             app_state.update_selected_index(key_code);
             return Ok(app_state.clone());
         }
         KeyCode::Left => {
-            let new_state = app_state.handle_move_back()?;
-            return Ok(new_state);
+            app_state.handle_move_back();
+            return Ok(app_state.clone());
         }
         KeyCode::Esc => panic!(),
         _ => return Ok(app_state.clone()),
     }
 }
 
-pub fn handle_key_modifier(key_code: KeyCode, modifier: KeyModifiers, app_state: &mut state_handler::AppState) -> Result<(), Box<dyn Error>> {
-    if modifier == KeyModifiers::CONTROL{
+pub fn handle_key_modifier(
+    key_code: KeyCode,
+    modifier: KeyModifiers,
+    app_state: &mut state_handler::AppState,
+) -> Result<(), Box<dyn Error>> {
+    if modifier == KeyModifiers::CONTROL {
         match key_code {
             KeyCode::Char('n') => {
                 app_state.handle_create();
                 return Ok(());
-            },
-            _ => panic!("not implemented")
-
+            }
+            KeyCode::Char('k') => {
+                app_state.update_selected_index(KeyCode::Up);
+                return Ok(());
+            }
+            KeyCode::Char('j') => {
+                app_state.update_selected_index(KeyCode::Down);
+                return Ok(());
+            }
+            _ => panic!("not implemented"),
         }
     }
 
@@ -79,12 +82,12 @@ mod integration_tests {
             displayed_paths: formatted_paths.clone(),
             selected_index: 0,
             search_term: "".to_owned(),
-            message: "".to_owned()
+            message: "".to_owned(),
         };
     }
 
     #[test]
-    fn test_handle_key_code() {
+    fn test_state_transitions() {
         let initial_state = enter_test_dir();
         let initial_state_displayed_paths: Vec<&str> = initial_state
             .displayed_paths
@@ -117,7 +120,17 @@ mod integration_tests {
         let mut updated = handle_key_code(KeyCode::Enter, &mut updated).unwrap();
         assert_eq!(updated.curr_absolute_path, selected);
 
-        let updated = handle_key_code(KeyCode::Left, &mut updated).unwrap();
+        let mut updated = handle_key_code(KeyCode::Left, &mut updated).unwrap();
         assert_eq!(updated.curr_absolute_path, previous_dir);
+
+        updated.search_term = "testing.py".to_owned();
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut updated).unwrap();
+        let path_list: Vec<String> = updated
+            .clone()
+            .displayed_paths
+            .iter()
+            .map(|fd| fd.shortname.to_owned())
+            .collect();
+        assert_eq!(path_list.contains(&"testing.py".to_owned()), true);
     }
 }
