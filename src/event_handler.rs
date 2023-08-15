@@ -57,7 +57,7 @@ pub fn handle_key_modifier(
             }
             KeyCode::Char('y') => {
                 app_state.handle_confirm_delete();
-                return Ok(())
+                return Ok(());
             }
             _ => panic!("not implemented"),
         }
@@ -144,12 +144,21 @@ mod integration_tests {
         assert_eq!(path_list.contains(&"testing.py".to_owned()), true);
         assert_eq!(updated.message, "File successfully created".to_owned());
 
-        updated.selected_index = updated.displayed_paths.iter().position(|fd| fd.shortname.as_str() == "testing.py").unwrap();
+        updated.selected_index = updated
+            .displayed_paths
+            .iter()
+            .position(|fd| fd.shortname.as_str() == "testing.py")
+            .unwrap();
 
         handle_key_modifier(KeyCode::Char('d'), KeyModifiers::CONTROL, &mut updated).unwrap();
         handle_key_modifier(KeyCode::Char('y'), KeyModifiers::CONTROL, &mut updated).unwrap();
 
-        let includes_added_file: Vec<&str> = updated.inner_paths.iter().filter(|fd| &fd.shortname == "testing.py").map(|fd| fd.shortname.as_str()).collect();
+        let includes_added_file: Vec<&str> = updated
+            .inner_paths
+            .iter()
+            .filter(|fd| &fd.shortname == "testing.py")
+            .map(|fd| fd.shortname.as_str())
+            .collect();
         assert_eq!(includes_added_file.len(), 0);
     }
 }

@@ -95,7 +95,7 @@ impl AppState {
 
         if let Err(e) = std::env::set_current_dir(&next_dir) {
             self.message = e.to_string();
-            return
+            return;
         }
 
         self.update_post_move(&next_dir);
@@ -112,7 +112,7 @@ impl AppState {
 
         if let Err(e) = std::env::set_current_dir(&selected.absolute) {
             self.message = e.to_string();
-            return
+            return;
         }
 
         self.update_post_move(&selected.absolute.clone());
@@ -144,7 +144,10 @@ impl AppState {
             .map(|fd| fd.shortname.as_str())
             .collect();
 
-        self.message = format!("Press Ctrl + Y to confirm deletion of files: {:?}", marked_files);
+        self.message = format!(
+            "Press Ctrl + Y to confirm deletion of files: {:?}",
+            marked_files
+        );
         return;
     }
 
@@ -153,7 +156,7 @@ impl AppState {
             if path.marked_for_deletion {
                 if let Err(e) = fs::remove_file(&path.absolute) {
                     self.message = e.to_string();
-                    return
+                    return;
                 }
             }
         }
