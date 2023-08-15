@@ -1,7 +1,7 @@
 slingshot 0.0.1
 ============
 
-[![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/ci.yml)
+[![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/ci.yml)
 
 <img src="https://s11.gifyu.com/images/ScJ1Z.gif">
 
