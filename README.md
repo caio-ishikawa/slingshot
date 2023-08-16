@@ -1,7 +1,7 @@
-slingshot 0.0.1
+slingshot 0.0.2
 ============
 
-[![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/rust.yml)
+[![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml)
 
 <img src="https://s11.gifyu.com/images/ScJ1Z.gif">
 
@@ -12,4 +12,20 @@ Design Goals
 - A quick way to navigate, create and edit files in the terminal.
 - Easily maintanable.
 - Minimal use of third party crates.
+
+Dependencies
+------------
+- [Rust & Cargo](https://www.rust-lang.org/tools/install)
+- [Nerdfonts](https://www.nerdfonts.com/)
+
+How to install
+--------------
+- Clone the repository & navigate to cloned directory.
+- Run `make build`
+- Run `make install`
+
+Known issues
+------------
+- Scrolling/overflows do not render properly (filtering is not affected).
+- Crashes if user tries to move back from home directory.
 
