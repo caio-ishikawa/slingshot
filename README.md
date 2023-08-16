@@ -1,4 +1,4 @@
-slingshot 0.0.2
+slingshot 0.1.0
 ============
 
 [![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml)
