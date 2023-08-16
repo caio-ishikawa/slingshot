@@ -1,4 +1,5 @@
 use crate::state_handler;
+use crossterm;
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::error::Error;
 
@@ -27,7 +28,10 @@ pub fn handle_key_code(
             app_state.handle_move_back();
             return Ok(app_state.clone());
         }
-        KeyCode::Esc => panic!(),
+        KeyCode::Esc => {
+            crossterm::terminal::disable_raw_mode()?;
+            std::process::exit(0);
+        }
         _ => return Ok(app_state.clone()),
     }
 }
