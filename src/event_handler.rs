@@ -6,33 +6,33 @@ use std::error::Error;
 pub fn handle_key_code(
     key_code: KeyCode,
     app_state: &mut state_handler::AppState,
-) -> Result<state_handler::AppState, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     match key_code {
         KeyCode::Char(c) => {
             app_state.handle_search_term_change(c);
-            return Ok(app_state.clone());
+            return Ok(());
         }
         KeyCode::Backspace => {
             app_state.handle_backspace();
-            return Ok(app_state.clone());
+            return Ok(());
         }
         KeyCode::Enter => {
             app_state.handle_enter();
-            return Ok(app_state.clone());
+            return Ok(());
         }
         KeyCode::Up | KeyCode::Down => {
             app_state.update_selected_index(key_code);
-            return Ok(app_state.clone());
+            return Ok(());
         }
         KeyCode::Left => {
             app_state.handle_move_back();
-            return Ok(app_state.clone());
+            return Ok(());
         }
         KeyCode::Esc => {
             crossterm::terminal::disable_raw_mode()?;
             std::process::exit(0);
         }
-        _ => return Ok(app_state.clone()),
+        _ => return Ok(()),
     }
 }
 
@@ -100,45 +100,46 @@ mod integration_tests {
 
     #[test]
     fn test_state_transitions() {
-        let initial_state = enter_test_dir();
-        let initial_state_displayed_paths: Vec<&str> = initial_state
+        let mut state = enter_test_dir();
+        let initial_state_displayed_paths: Vec<String> = state
+            .clone()
             .displayed_paths
             .iter()
-            .map(|fd| fd.shortname.as_str())
+            .map(|fd| fd.shortname.clone())
             .collect();
 
-        let mut updated = handle_key_code(KeyCode::Char('l'), &mut initial_state.clone()).unwrap();
-        assert_eq!(updated.displayed_paths.len(), 1);
-        assert_eq!(&updated.displayed_paths[0].shortname, "llkh.py");
+        handle_key_code(KeyCode::Char('l'), &mut state).unwrap();
+        assert_eq!(state.displayed_paths.len(), 1);
+        assert_eq!(&state.displayed_paths[0].shortname, "llkh.py");
 
-        updated = handle_key_code(KeyCode::Backspace, &mut updated).unwrap();
-        for file in updated.clone().displayed_paths {
+        handle_key_code(KeyCode::Backspace, &mut state).unwrap();
+        for file in state.clone().displayed_paths {
             assert_eq!(
-                initial_state_displayed_paths.contains(&file.shortname.as_str()),
+                initial_state_displayed_paths.contains(&file.shortname),
                 true
             );
         }
 
-        let updated = handle_key_code(KeyCode::Char('d'), &mut updated.clone()).unwrap();
-        let updated = handle_key_code(KeyCode::Char('i'), &mut updated.clone()).unwrap();
-        let updated = handle_key_code(KeyCode::Char('r'), &mut updated.clone()).unwrap();
-        let mut updated = handle_key_code(KeyCode::Char('1'), &mut updated.clone()).unwrap();
+        handle_key_code(KeyCode::Char('d'), &mut state).unwrap();
+        handle_key_code(KeyCode::Char('i'), &mut state).unwrap();
+        handle_key_code(KeyCode::Char('r'), &mut state).unwrap();
+        handle_key_code(KeyCode::Char('1'), &mut state).unwrap();
 
-        assert_eq!(updated.displayed_paths.len(), 1);
-        assert_eq!(updated.displayed_paths[0].shortname, "dir1".to_owned());
-        let previous_dir = updated.clone().curr_absolute_path.to_owned();
-        let selected = updated.clone().displayed_paths[0].to_owned().absolute;
+        assert_eq!(state.displayed_paths.len(), 1);
+        assert_eq!(state.displayed_paths[0].shortname, "dir1".to_owned());
+        let previous_dir = state.clone().curr_absolute_path.to_owned();
+        let selected = state.clone().displayed_paths[0].to_owned().absolute;
 
-        let mut updated = handle_key_code(KeyCode::Enter, &mut updated).unwrap();
-        assert_eq!(updated.curr_absolute_path, selected);
+        handle_key_code(KeyCode::Enter, &mut state).unwrap();
+        assert_eq!(state.curr_absolute_path, selected);
 
-        let mut updated = handle_key_code(KeyCode::Left, &mut updated).unwrap();
-        assert_eq!(updated.curr_absolute_path, previous_dir);
+        handle_key_code(KeyCode::Left, &mut state).unwrap();
+        assert_eq!(state.curr_absolute_path, previous_dir);
 
-        updated.search_term = "testing.py".to_owned();
-        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut updated).unwrap();
+        state.search_term = "testing.py".to_owned();
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
 
-        let path_list: Vec<String> = updated
+        let path_list: Vec<String> = state
             .clone()
             .displayed_paths
             .iter()
@@ -146,18 +147,18 @@ mod integration_tests {
             .collect();
 
         assert_eq!(path_list.contains(&"testing.py".to_owned()), true);
-        assert_eq!(updated.message, "File successfully created".to_owned());
+        assert_eq!(state.message, "File successfully created".to_owned());
 
-        updated.selected_index = updated
+        state.selected_index = state
             .displayed_paths
             .iter()
             .position(|fd| fd.shortname.as_str() == "testing.py")
             .unwrap();
 
-        handle_key_modifier(KeyCode::Char('d'), KeyModifiers::CONTROL, &mut updated).unwrap();
-        handle_key_modifier(KeyCode::Char('y'), KeyModifiers::CONTROL, &mut updated).unwrap();
+        handle_key_modifier(KeyCode::Char('d'), KeyModifiers::CONTROL, &mut state).unwrap();
+        handle_key_modifier(KeyCode::Char('y'), KeyModifiers::CONTROL, &mut state).unwrap();
 
-        let includes_added_file: Vec<&str> = updated
+        let includes_added_file: Vec<&str> = state
             .inner_paths
             .iter()
             .filter(|fd| &fd.shortname == "testing.py")

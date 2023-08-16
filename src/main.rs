@@ -21,7 +21,7 @@ fn start_slingshot(starting_state: &state_handler::AppState) -> Result<(), Box<d
                 )?;
                 app_state.display()?;
             } else {
-                app_state = event_handler::handle_key_code(key_event.code, &mut app_state)?;
+                event_handler::handle_key_code(key_event.code, &mut app_state)?;
                 app_state.display()?;
             }
         }
