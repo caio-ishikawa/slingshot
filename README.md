@@ -24,6 +24,21 @@ How to install
 - Run `make build`
 - Run `make install`
 
+How to use
+----------
+- Moving up/down:
+    - Arrow Keys
+    - Ctrl+J / Ctrl+K
+
+- Creating folders/files:
+    - For folders, type the desired name followed by a `/`
+    - For files, type the name of the desired file with the file extension (e.g. `.py`, `.txt`, etc.)
+    - Confirm by pressing `Ctrl+N`
+
+- Deleting files/folders
+    - Marking files/folders for deletion is done by pressing Ctrl+D, which will highlight the item red.
+    - Confirm by pressing `Ctrl+Y`
+
 Known issues
 ------------
 - Scrolling/overflows do not render properly (filtering is not affected).

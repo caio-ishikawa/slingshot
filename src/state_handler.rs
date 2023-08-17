@@ -19,6 +19,7 @@ pub struct AppState {
     pub selected_index: usize,
     pub search_term: String,
     pub message: String,
+    pub command_mode: bool,
 }
 
 impl AppState {
@@ -194,6 +195,10 @@ impl AppState {
             return;
         }
     }
+
+    pub fn handle_unsupported_input(&mut self) {
+        self.message = "Unsupported input.".to_owned();
+    }
 }
 
 pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
@@ -210,6 +215,7 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
         selected_index: 0,
         search_term: "".to_owned(),
         message: "".to_owned(),
+        command_mode: false,
     });
 }
 
@@ -245,6 +251,7 @@ mod tests {
             selected_index: 0,
             search_term: "".to_owned(),
             message: "".to_owned(),
+            command_mode: false,
         };
 
         struct TestCase {
@@ -299,6 +306,7 @@ mod tests {
             selected_index: 0,
             search_term: "test".to_owned(),
             message: "".to_owned(),
+            command_mode: false,
         };
 
         struct TestCase {
