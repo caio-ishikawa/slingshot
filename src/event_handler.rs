@@ -43,6 +43,10 @@ pub fn handle_key_modifier(
 ) -> Result<(), Box<dyn Error>> {
     if modifier == KeyModifiers::CONTROL {
         match key_code {
+            KeyCode::Char('c') => {
+                crossterm::terminal::disable_raw_mode()?;
+                std::process::exit(0);
+            }
             KeyCode::Char('n') => {
                 app_state.handle_create();
                 return Ok(());
