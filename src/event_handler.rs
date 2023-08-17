@@ -3,6 +3,11 @@ use crossterm;
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::error::Error;
 
+// the idea is to add command_mode to AppState.
+// The display function has to be renamed to display_files,
+// and 2 other display fucntion needs to exist. One to display command mode,
+// and the other to check which function to call. display_files or display_command
+
 pub fn handle_key_code(
     key_code: KeyCode,
     app_state: &mut state_handler::AppState,
@@ -67,7 +72,10 @@ pub fn handle_key_modifier(
                 app_state.handle_confirm_delete();
                 return Ok(());
             }
-            _ => panic!("not implemented"),
+            _ => {
+                app_state.handle_unsupported_input();
+                return Ok(());
+            }
         }
     }
 
@@ -99,6 +107,7 @@ mod integration_tests {
             selected_index: 0,
             search_term: "".to_owned(),
             message: "".to_owned(),
+            command_mode: false,
         };
     }
 
