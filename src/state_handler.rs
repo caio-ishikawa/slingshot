@@ -1,6 +1,7 @@
 use crate::file;
+use crate::styles;
 use crossterm::event::KeyCode;
-use crossterm::style::{Attribute, ResetColor, SetAttribute};
+use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal;
 use crossterm::{cursor, QueueableCommand};
 use std::borrow::Cow;
@@ -12,55 +13,83 @@ use std::io::{stdout, Write};
 use std::process::Command;
 
 #[derive(Clone)]
+pub enum AppMode {
+    FileExplorer,
+    Command,
+}
+
+#[derive(Clone)]
 pub struct AppState {
+    pub mode: AppMode,
     pub curr_absolute_path: String,
     pub inner_paths: Vec<file::FileData>,
     pub displayed_paths: Vec<file::FileData>,
     pub selected_index: usize,
-    pub search_term: String,
+    pub user_input: String,
     pub message: String,
     pub command_mode: bool,
 }
 
 impl AppState {
     pub fn display(&self) -> Result<(), Box<dyn Error>> {
-        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-        let mut stdout = stdout();
-        stdout.queue(cursor::MoveTo(0, 1))?;
+        match self.mode {
+            AppMode::FileExplorer => {
+                print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+                let mut stdout = stdout();
+                stdout.queue(cursor::MoveTo(0, 1))?;
 
-        file::print_file_data(
-            Cow::Borrowed(&self.displayed_paths),
-            self.selected_index,
-            &mut stdout,
-        );
+                file::print_file_data(
+                    Cow::Borrowed(&self.displayed_paths),
+                    self.selected_index,
+                    &mut stdout,
+                );
 
-        let (_, height) = terminal::size()?;
-        let t_height = cmp::max(height, 1) - 1;
-        stdout.queue(cursor::MoveTo(0, t_height))?;
-        print!("{}{}", self.message, ResetColor);
+                let (_, height) = terminal::size()?;
+                let t_height = cmp::max(height, 1) - 1;
+                stdout.queue(cursor::MoveTo(0, t_height))?;
+                print!("{}{}", self.message, ResetColor);
 
-        stdout.queue(cursor::MoveTo(0, 0))?;
-        print!(
-            ".{}{}/",
-            SetAttribute(Attribute::Bold),
-            self.curr_absolute_path
-        );
+                stdout.queue(cursor::MoveTo(0, 0))?;
+                print!(
+                    ".{}{}/",
+                    SetAttribute(Attribute::Bold),
+                    self.curr_absolute_path
+                );
 
-        print!("{}", self.search_term);
-        stdout.flush()?;
+                print!("{}", self.user_input);
+                stdout.flush()?;
+            }
+            AppMode::Command => {
+                print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+                let mut stdout = stdout();
+                stdout.queue(cursor::MoveTo(0, 0))?;
+                print!(
+                    "{}{}",
+                    SetAttribute(Attribute::Bold),
+                    self.curr_absolute_path
+                );
+                stdout.queue(cursor::MoveTo(0, 1))?;
+                print!("{}{}{} ", SetForegroundColor(styles::ERR), ">", ResetColor);
+                print!("{}", self.user_input);
+                stdout.queue(cursor::MoveTo(0, 2))?;
+                print!("{}", self.message);
+                stdout.queue(cursor::MoveTo(2, 1))?;
+                stdout.flush()?;
+            }
+        }
         Ok(())
     }
 
-    pub fn handle_search_term_change(&mut self, to_push: char) {
-        self.search_term.push(to_push);
+    pub fn handle_user_input_change(&mut self, to_push: char) {
+        self.user_input.push(to_push);
         self.displayed_paths =
-            file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.search_term);
+            file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.user_input);
     }
 
     pub fn handle_backspace(&mut self) {
-        self.search_term.pop();
+        self.user_input.pop();
         self.displayed_paths =
-            file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.search_term);
+            file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.user_input);
     }
 
     pub fn update_selected_index(&mut self, action: KeyCode) {
@@ -103,30 +132,56 @@ impl AppState {
     }
 
     pub fn handle_enter(&mut self) {
-        let selected = &self.displayed_paths[self.selected_index];
-        if selected.shortname.contains(".") {
-            if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
-                self.message = e.to_string();
-                return;
+        match self.mode {
+            AppMode::FileExplorer => {
+                let selected = &self.displayed_paths[self.selected_index];
+                if selected.shortname.contains(".") {
+                    if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
+                        self.message = e.to_string();
+                        return;
+                    }
+                }
+
+                if let Err(e) = std::env::set_current_dir(&selected.absolute) {
+                    self.message = e.to_string();
+                    return;
+                }
+
+                self.update_post_move(&selected.absolute.clone());
+            }
+            AppMode::Command => {
+                let split: Vec<&str> = self.user_input.split(" ").collect();
+                let args: Vec<&str> = split[1..].iter().map(|x| x.to_owned()).collect();
+                let cmd_res = Command::new(split[0])
+                    .args(args)
+                    .stdout(std::process::Stdio::piped())
+                    .stdin(std::process::Stdio::piped())
+                    .output();
+
+                match cmd_res {
+                    Ok(output) => {
+                        let stdout_msg = String::from_utf8_lossy(&output.stdout);
+                        let stderr_msg = String::from_utf8_lossy(&output.stderr);
+                        if stdout_msg == "".to_owned() {
+                            self.message = stderr_msg.trim().to_owned();
+                        } else {
+                            self.message = stdout_msg.trim().to_owned();
+                        }
+                    }
+                    Err(e) => self.message = e.to_string(),
+                }
             }
         }
-
-        if let Err(e) = std::env::set_current_dir(&selected.absolute) {
-            self.message = e.to_string();
-            return;
-        }
-
-        self.update_post_move(&selected.absolute.clone());
     }
 
     pub fn handle_create(&mut self) {
-        if self.search_term.contains("/") {
-            if let Err(e) = fs::create_dir(&self.search_term) {
+        if self.user_input.contains("/") {
+            if let Err(e) = fs::create_dir(&self.user_input) {
                 self.message = e.to_string();
                 return;
             }
-        } else if self.search_term.contains(".") {
-            if let Err(e) = fs::File::create(self.search_term.clone()) {
+        } else if self.user_input.contains(".") {
+            if let Err(e) = fs::File::create(self.user_input.clone()) {
                 self.message = e.to_string();
                 return;
             }
@@ -166,11 +221,26 @@ impl AppState {
         self.message = String::from("Files successfully removed");
     }
 
+    pub fn toggle_command_mode(&mut self) {
+        self.user_input = String::from("");
+        self.message = String::from("");
+        self.update_paths();
+
+        match self.mode {
+            AppMode::FileExplorer => self.mode = AppMode::Command,
+            AppMode::Command => self.mode = AppMode::FileExplorer,
+        }
+    }
+
+    pub fn handle_unsupported_input(&mut self) {
+        self.message = "Unsupported input.".to_owned();
+    }
+
     fn update_paths(&mut self) {
         let paths = file::get_paths(&self.curr_absolute_path);
         let updated_file_data_res = file::generate_file_data(paths);
         if let Ok(value) = updated_file_data_res {
-            self.search_term = "".to_owned();
+            self.user_input = "".to_owned();
             self.inner_paths = value.clone();
             self.displayed_paths = value.clone();
         } else if let Err(e) = updated_file_data_res {
@@ -188,16 +258,12 @@ impl AppState {
             self.inner_paths = value.clone();
             self.displayed_paths = value;
             self.selected_index = 0;
-            self.search_term = "".to_owned();
+            self.user_input = "".to_owned();
             self.message = "".to_owned();
         } else if let Err(e) = final_paths {
             self.message = e.to_string();
             return;
         }
-    }
-
-    pub fn handle_unsupported_input(&mut self) {
-        self.message = "Unsupported input.".to_owned();
     }
 }
 
@@ -209,11 +275,12 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
     let formatted_paths = file::generate_file_data(paths).unwrap();
 
     return Ok(AppState {
+        mode: AppMode::FileExplorer,
         curr_absolute_path: cwd.to_owned(),
         inner_paths: formatted_paths.clone(),
         displayed_paths: formatted_paths.clone(),
         selected_index: 0,
-        search_term: "".to_owned(),
+        user_input: "".to_owned(),
         message: "".to_owned(),
         command_mode: false,
     });
@@ -239,51 +306,52 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_search_term_change() {
+    fn test_handle_user_input_change() {
         let test_file_names: Vec<&str> = vec!["test.txt", "aaaatea.txt", "tomb.txt", "wow", "damn"];
 
         let test_file_data = gen_test_file_data(test_file_names);
 
         let mut app_state = AppState {
+            mode: AppMode::FileExplorer,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
             selected_index: 0,
-            search_term: "".to_owned(),
+            user_input: "".to_owned(),
             message: "".to_owned(),
             command_mode: false,
         };
 
         struct TestCase {
             input_char: char,
-            expected_search_term: &'static str,
+            expected_user_input: &'static str,
             expected_file_names: Vec<&'static str>,
         }
 
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 input_char: 't',
-                expected_search_term: "t",
+                expected_user_input: "t",
                 expected_file_names: vec!["test.txt", "tomb.txt", "aaaatea.txt"],
             },
             TestCase {
                 input_char: 'e',
-                expected_search_term: "te",
+                expected_user_input: "te",
                 expected_file_names: vec!["test.txt", "aaaatea.txt"],
             },
             TestCase {
                 input_char: '.',
-                expected_search_term: "te.",
+                expected_user_input: "te.",
                 expected_file_names: vec![],
             },
         ];
 
         for (i, test_case) in test_cases.iter().enumerate() {
-            app_state.handle_search_term_change(test_case.input_char);
-            println!("{} {}", i, app_state.search_term);
+            app_state.handle_user_input_change(test_case.input_char);
+            println!("{} {}", i, app_state.user_input);
             assert_eq!(
-                test_case.expected_search_term.to_owned(),
-                app_state.search_term
+                test_case.expected_user_input.to_owned(),
+                app_state.user_input
             );
             let file_names: Vec<&str> = app_state
                 .displayed_paths
@@ -300,11 +368,12 @@ mod tests {
         let test_file_data = gen_test_file_data(test_file_names);
 
         let mut app_state = AppState {
+            mode: AppMode::FileExplorer,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
             selected_index: 0,
-            search_term: "test".to_owned(),
+            user_input: "test".to_owned(),
             message: "".to_owned(),
             command_mode: false,
         };
@@ -336,7 +405,7 @@ mod tests {
                 .iter()
                 .map(|fd| fd.shortname.as_str())
                 .collect();
-            assert_eq!(test_case.expected_term, app_state.search_term);
+            assert_eq!(test_case.expected_term, app_state.user_input);
             assert_eq!(test_case.expected_file_names, file_names);
         }
     }
