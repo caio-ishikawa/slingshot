@@ -1,4 +1,4 @@
-slingshot 0.1.0
+slingshot 0.2.0
 ===============
 
 [![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml)
@@ -40,7 +40,7 @@ How to use
     - Confirm by pressing `Ctrl+Y`.
 
 - Command mode
-    - Opening command mode can be done by pressing `Ctrl+N`.
+    - Toggling between Command Mode and File Explorer can be done by pressing `Ctrl+N`.
     - To run the command, type it and confirm with Enter.
 
 Known issues
