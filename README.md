@@ -47,4 +47,5 @@ Known issues
 ------------
 - Scrolling/overflows do not render properly (filtering is not affected).
 - Crashes if user tries to move back from home directory.
+- Cursor does not move correctly in command mode. (functionality not affected)
 
