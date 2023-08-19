@@ -37,7 +37,6 @@ pub fn handle_key_code(
 }
 
 pub fn handle_key_modifier(
-    // FileExplorer
     key_code: KeyCode,
     modifier: KeyModifiers,
     app_state: &mut state_handler::AppState,
@@ -64,7 +63,7 @@ pub fn handle_key_modifier(
                 app_state.handle_confirm_delete();
                 return Ok(());
             }
-            KeyCode::Char('m') => {
+            KeyCode::Char('n') => {
                 app_state.toggle_command_mode();
                 return Ok(());
             }
@@ -184,7 +183,7 @@ mod integration_tests {
             .collect();
         assert_eq!(includes_added_file.len(), 0);
 
-        handle_key_modifier(KeyCode::Char('m'), KeyModifiers::CONTROL, &mut state).unwrap();
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
         assert_eq!(state.mode, state_handler::AppMode::Command);
 
         let new_input = ['e', 'c', 'h', 'o', ' ', 't', 'e', 's', 't'];
@@ -195,7 +194,7 @@ mod integration_tests {
         handle_key_code(KeyCode::Enter, &mut state).unwrap();
         assert_eq!(state.message, "test".to_owned());
 
-        handle_key_modifier(KeyCode::Char('m'), KeyModifiers::CONTROL, &mut state).unwrap();
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
         assert_eq!(state.mode, state_handler::AppMode::FileExplorer);
     }
 }

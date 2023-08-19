@@ -1,5 +1,5 @@
 slingshot 0.1.0
-============
+===============
 
 [![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml)
 
@@ -28,16 +28,20 @@ How to use
 ----------
 - Moving up/down:
     - Arrow Keys
-    - Ctrl+J / Ctrl+K
+    - `Ctrl+J`/`Ctrl+K`
 
 - Creating folders/files:
-    - For folders, type the desired name followed by a `/`
+    - For folders, type the desired name followed by a `/`.
     - For files, type the name of the desired file with the file extension (e.g. `.py`, `.txt`, etc.)
-    - Confirm by pressing `Ctrl+N`
+    - Confirm creation by pressing Enter.
 
 - Deleting files/folders
     - Marking files/folders for deletion is done by pressing Ctrl+D, which will highlight the item red.
-    - Confirm by pressing `Ctrl+Y`
+    - Confirm by pressing `Ctrl+Y`.
+
+- Command mode
+    - Opening command mode can be done by pressing `Ctrl+N`.
+    - To run the command, type it and confirm with Enter.
 
 Known issues
 ------------
