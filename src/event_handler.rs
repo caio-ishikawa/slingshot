@@ -48,10 +48,6 @@ pub fn handle_key_modifier(
                 crossterm::terminal::disable_raw_mode()?;
                 std::process::exit(0);
             }
-            KeyCode::Char('n') => {
-                app_state.handle_create();
-                return Ok(());
-            }
             KeyCode::Char('k') => {
                 app_state.update_selected_index(KeyCode::Up);
                 return Ok(());
@@ -68,7 +64,7 @@ pub fn handle_key_modifier(
                 app_state.handle_confirm_delete();
                 return Ok(());
             }
-            KeyCode::Char('p') => {
+            KeyCode::Char('m') => {
                 app_state.toggle_command_mode();
                 return Ok(());
             }
@@ -134,10 +130,10 @@ mod integration_tests {
             );
         }
 
-        handle_key_code(KeyCode::Char('d'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('i'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('r'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('1'), &mut state).unwrap();
+        let new_input = ['d', 'i', 'r', '1'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
 
         assert_eq!(state.displayed_paths.len(), 1);
         assert_eq!(state.displayed_paths[0].shortname, "dir1".to_owned());
@@ -150,8 +146,13 @@ mod integration_tests {
         handle_key_code(KeyCode::Left, &mut state).unwrap();
         assert_eq!(state.curr_absolute_path, previous_dir);
 
-        state.user_input = "testing.py".to_owned();
-        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
+        let new_input = ['t', 'e', 's', 't', 'i', 'n', 'g', '.', 'p', 'y'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
+
+        handle_key_code(KeyCode::Enter, &mut state).unwrap();
+        println!("created file");
 
         let path_list: Vec<String> = state
             .clone()
@@ -160,8 +161,11 @@ mod integration_tests {
             .map(|fd| fd.shortname.to_owned())
             .collect();
 
+        println!("{:?}", path_list);
+
         assert_eq!(path_list.contains(&"testing.py".to_owned()), true);
         assert_eq!(state.message, "File successfully created".to_owned());
+        println!("Enter worked");
 
         state.selected_index = state
             .displayed_paths
@@ -179,5 +183,19 @@ mod integration_tests {
             .map(|fd| fd.shortname.as_str())
             .collect();
         assert_eq!(includes_added_file.len(), 0);
+
+        handle_key_modifier(KeyCode::Char('m'), KeyModifiers::CONTROL, &mut state).unwrap();
+        assert_eq!(state.mode, state_handler::AppMode::Command);
+
+        let new_input = ['e', 'c', 'h', 'o', ' ', 't', 'e', 's', 't'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
+
+        handle_key_code(KeyCode::Enter, &mut state).unwrap();
+        assert_eq!(state.message, "test".to_owned());
+
+        handle_key_modifier(KeyCode::Char('m'), KeyModifiers::CONTROL, &mut state).unwrap();
+        assert_eq!(state.mode, state_handler::AppMode::FileExplorer);
     }
 }

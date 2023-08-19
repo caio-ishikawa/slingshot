@@ -12,7 +12,7 @@ use std::fs;
 use std::io::{stdout, Write};
 use std::process::Command;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AppMode {
     FileExplorer,
     Command,
@@ -134,6 +134,11 @@ impl AppState {
     pub fn handle_enter(&mut self) {
         match self.mode {
             AppMode::FileExplorer => {
+                if self.displayed_paths.len() == 0 {
+                    self.handle_create();
+                    return;
+                }
+
                 let selected = &self.displayed_paths[self.selected_index];
                 if selected.shortname.contains(".") {
                     if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
@@ -170,6 +175,8 @@ impl AppState {
                     }
                     Err(e) => self.message = e.to_string(),
                 }
+
+                self.user_input = String::from("");
             }
         }
     }
