@@ -3,18 +3,13 @@ use crossterm;
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::error::Error;
 
-// the idea is to add command_mode to AppState.
-// The display function has to be renamed to display_files,
-// and 2 other display fucntion needs to exist. One to display command mode,
-// and the other to check which function to call. display_files or display_command
-
 pub fn handle_key_code(
     key_code: KeyCode,
     app_state: &mut state_handler::AppState,
 ) -> Result<(), Box<dyn Error>> {
     match key_code {
         KeyCode::Char(c) => {
-            app_state.handle_search_term_change(c);
+            app_state.handle_user_input_change(c);
             return Ok(());
         }
         KeyCode::Backspace => {
@@ -52,10 +47,6 @@ pub fn handle_key_modifier(
                 crossterm::terminal::disable_raw_mode()?;
                 std::process::exit(0);
             }
-            KeyCode::Char('n') => {
-                app_state.handle_create();
-                return Ok(());
-            }
             KeyCode::Char('k') => {
                 app_state.update_selected_index(KeyCode::Up);
                 return Ok(());
@@ -70,6 +61,10 @@ pub fn handle_key_modifier(
             }
             KeyCode::Char('y') => {
                 app_state.handle_confirm_delete();
+                return Ok(());
+            }
+            KeyCode::Char('n') => {
+                app_state.toggle_command_mode();
                 return Ok(());
             }
             _ => {
@@ -101,11 +96,12 @@ mod integration_tests {
         let formatted_paths = file::generate_file_data(paths).expect("Error generating file data");
 
         return state_handler::AppState {
+            mode: state_handler::AppMode::FileExplorer,
             curr_absolute_path: absolute_path,
             inner_paths: formatted_paths.clone(),
             displayed_paths: formatted_paths.clone(),
             selected_index: 0,
-            search_term: "".to_owned(),
+            user_input: "".to_owned(),
             message: "".to_owned(),
             command_mode: false,
         };
@@ -133,10 +129,10 @@ mod integration_tests {
             );
         }
 
-        handle_key_code(KeyCode::Char('d'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('i'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('r'), &mut state).unwrap();
-        handle_key_code(KeyCode::Char('1'), &mut state).unwrap();
+        let new_input = ['d', 'i', 'r', '1'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
 
         assert_eq!(state.displayed_paths.len(), 1);
         assert_eq!(state.displayed_paths[0].shortname, "dir1".to_owned());
@@ -149,8 +145,13 @@ mod integration_tests {
         handle_key_code(KeyCode::Left, &mut state).unwrap();
         assert_eq!(state.curr_absolute_path, previous_dir);
 
-        state.search_term = "testing.py".to_owned();
-        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
+        let new_input = ['t', 'e', 's', 't', 'i', 'n', 'g', '.', 'p', 'y'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
+
+        handle_key_code(KeyCode::Enter, &mut state).unwrap();
+        println!("created file");
 
         let path_list: Vec<String> = state
             .clone()
@@ -159,8 +160,11 @@ mod integration_tests {
             .map(|fd| fd.shortname.to_owned())
             .collect();
 
+        println!("{:?}", path_list);
+
         assert_eq!(path_list.contains(&"testing.py".to_owned()), true);
         assert_eq!(state.message, "File successfully created".to_owned());
+        println!("Enter worked");
 
         state.selected_index = state
             .displayed_paths
@@ -178,5 +182,19 @@ mod integration_tests {
             .map(|fd| fd.shortname.as_str())
             .collect();
         assert_eq!(includes_added_file.len(), 0);
+
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
+        assert_eq!(state.mode, state_handler::AppMode::Command);
+
+        let new_input = ['e', 'c', 'h', 'o', ' ', 't', 'e', 's', 't'];
+        for ch in new_input {
+            handle_key_code(KeyCode::Char(ch), &mut state).unwrap();
+        }
+
+        handle_key_code(KeyCode::Enter, &mut state).unwrap();
+        assert_eq!(state.message, "test".to_owned());
+
+        handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
+        assert_eq!(state.mode, state_handler::AppMode::FileExplorer);
     }
 }
