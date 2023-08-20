@@ -68,12 +68,11 @@ impl AppState {
                     SetAttribute(Attribute::Bold),
                     self.curr_absolute_path
                 );
+                stdout.queue(cursor::MoveTo(0, 2))?;
+                print!("{}", self.message);
                 stdout.queue(cursor::MoveTo(0, 1))?;
                 print!("{}{}{} ", SetForegroundColor(styles::ERR), ">", ResetColor);
                 print!("{}", self.user_input);
-                stdout.queue(cursor::MoveTo(0, 2))?;
-                print!("{}", self.message);
-                stdout.queue(cursor::MoveTo(2, 1))?;
                 stdout.flush()?;
             }
         }
