@@ -35,16 +35,17 @@ How to use
     - For files, type the name of the desired file with the file extension (e.g. `.py`, `.txt`, etc.)
     - Confirm creation by pressing Enter.
 
-- Deleting files/folders
+- Deleting files/folders:
     - Marking files/folders for deletion is done by pressing Ctrl+D, which will highlight the item red.
     - Confirm by pressing `Ctrl+Y`.
 
-- Command mode
-    - Opening command mode can be done by pressing `Ctrl+N`.
+- Command mode:
+    - Toggling between Command Mode and File Explorer can be done by pressing `Ctrl+N`.
     - To run the command, type it and confirm with Enter.
 
 Known issues
 ------------
-- Scrolling/overflows do not render properly (filtering is not affected).
+- Scrolling/overflows do not render properly (filtering is not affected.)
 - Crashes if user tries to move back from home directory.
+- Cursor does not move correctly in command mode (functionality not affected.)
 
