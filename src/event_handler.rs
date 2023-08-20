@@ -67,6 +67,10 @@ pub fn handle_key_modifier(
                 app_state.toggle_command_mode();
                 return Ok(());
             }
+            KeyCode::Char('h') => {
+                app_state.handle_move_back();
+                return Ok(());
+            }
             _ => {
                 app_state.handle_unsupported_input();
                 return Ok(());
