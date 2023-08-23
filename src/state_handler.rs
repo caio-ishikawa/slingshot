@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::cmp;
 use std::env;
 use std::error::Error;
-use std::fs;
+use std::fs::{self, metadata};
 use std::io::{stdout, Write};
 use std::process::Command;
 
@@ -139,7 +139,7 @@ impl AppState {
                 }
 
                 let selected = &self.displayed_paths[self.selected_index];
-                if selected.shortname.contains(".") {
+                if metadata(&selected.shortname).unwrap().is_file() {
                     if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
                         self.message = e.to_string();
                         return;
