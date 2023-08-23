@@ -130,53 +130,65 @@ impl AppState {
         self.update_post_move(&next_dir);
     }
 
-    pub fn handle_enter(&mut self) {
-        match self.mode {
-            AppMode::FileExplorer => {
-                if self.displayed_paths.len() == 0 {
-                    self.handle_create();
-                    return;
-                }
+    fn handle_enter_explorer(&mut self) {
+        if self.displayed_paths.len() == 0 {
+            self.handle_create();
+            return;
+        }
 
-                let selected = &self.displayed_paths[self.selected_index];
-                if metadata(&selected.shortname).unwrap().is_file() {
+        let selected = &self.displayed_paths[self.selected_index];
+        let metadata_res = metadata(&selected.absolute);
+        match metadata_res {
+            Ok(metadata) => {
+                if metadata.is_file() {
                     if let Err(e) = Command::new("nvim").arg(&selected.shortname).status() {
                         self.message = e.to_string();
                         return;
                     }
                 }
-
-                if let Err(e) = std::env::set_current_dir(&selected.absolute) {
-                    self.message = e.to_string();
-                    return;
-                }
-
-                self.update_post_move(&selected.absolute.clone());
             }
-            AppMode::Command => {
-                let split: Vec<&str> = self.user_input.split(" ").collect();
-                let args: Vec<&str> = split[1..].iter().map(|x| x.to_owned()).collect();
-                let cmd_res = Command::new(split[0])
-                    .args(args)
-                    .stdout(std::process::Stdio::piped())
-                    .stdin(std::process::Stdio::piped())
-                    .output();
-
-                match cmd_res {
-                    Ok(output) => {
-                        let stdout_msg = String::from_utf8_lossy(&output.stdout);
-                        let stderr_msg = String::from_utf8_lossy(&output.stderr);
-                        if stdout_msg == "".to_owned() {
-                            self.message = stderr_msg.trim().to_owned();
-                        } else {
-                            self.message = stdout_msg.trim().to_owned();
-                        }
-                    }
-                    Err(e) => self.message = e.to_string(),
-                }
-
-                self.user_input = String::from("");
+            Err(e) => {
+                self.message = e.to_string();
             }
+        }
+
+        if let Err(e) = std::env::set_current_dir(&selected.absolute) {
+            self.message = e.to_string();
+            return;
+        }
+
+        self.update_post_move(&selected.absolute.clone());
+    }
+
+    fn handle_enter_command(&mut self) {
+        let split: Vec<&str> = self.user_input.split(" ").collect();
+        let args: Vec<&str> = split[1..].iter().map(|x| x.to_owned()).collect();
+        let cmd_res = Command::new(split[0])
+            .args(args)
+            .stdout(std::process::Stdio::piped())
+            .stdin(std::process::Stdio::piped())
+            .output();
+
+        match cmd_res {
+            Ok(output) => {
+                let stdout_msg = String::from_utf8_lossy(&output.stdout);
+                let stderr_msg = String::from_utf8_lossy(&output.stderr);
+                if stdout_msg == "".to_owned() {
+                    self.message = stderr_msg.trim().to_owned();
+                } else {
+                    self.message = stdout_msg.trim().to_owned();
+                }
+            }
+            Err(e) => self.message = e.to_string(),
+        }
+
+        self.user_input = String::from("");
+    }
+
+    pub fn handle_enter(&mut self) {
+        match self.mode {
+            AppMode::FileExplorer => self.handle_enter_explorer(),
+            AppMode::Command => self.handle_enter_command(),
         }
     }
 
