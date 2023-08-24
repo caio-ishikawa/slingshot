@@ -43,9 +43,16 @@ How to use
     - Toggling between Command Mode and File Explorer can be done by pressing `Ctrl+N`.
     - To run the command, type it and confirm with Enter.
 
+Fish Shell Integration
+----------------------
+The only requirement is to have slingshot installed.
+
+1. Run `fisher install caio-ishikawa/slingshot-fish`.
+
+The default keybind to open slingshot in the fish shell is `Ctrl+S`.
+
 Known issues
 ------------
 - Scrolling/overflows do not render properly (filtering is not affected.)
 - Crashes if user tries to move back from home directory.
-- Cursor does not move correctly in command mode (functionality not affected.)
 
