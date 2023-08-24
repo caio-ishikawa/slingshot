@@ -69,7 +69,15 @@ impl AppState {
                     self.curr_absolute_path
                 );
                 stdout.queue(cursor::MoveTo(0, 2))?;
-                print!("{}", self.message);
+                let msg_split: Vec<&str> = self.message.split("\n").collect();
+                if msg_split.len() > 1 {
+                    for line in msg_split {
+                        println!("{}", line);
+                        stdout.queue(cursor::MoveToColumn(0))?;
+                    }
+                } else {
+                    print!("{}", self.message);
+                }
                 stdout.queue(cursor::MoveTo(0, 1))?;
                 print!("{}{}{} ", SetForegroundColor(styles::ERR), ">", ResetColor);
                 print!("{}", self.user_input);
@@ -149,6 +157,7 @@ impl AppState {
             }
             Err(e) => {
                 self.message = e.to_string();
+                return;
             }
         }
 
