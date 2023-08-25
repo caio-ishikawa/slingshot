@@ -5,7 +5,7 @@ slingshot 0.2.3
 
 <img src="https://i.imgur.com/Psberkp.gif">
 
-Slingshot is a lightweight tool to browse files in the terminal. It allows the user to quickly filter through files in any directory, open them with a text editor (nvim by default), and create/edit/delete files in a simple interface.
+Slingshot is a lightweight tool to browse files in the terminal. It allows the user to quickly filter through files in any directory, open them with a text editor (nvim by default), create/edit/delete files , and run commands in a simple interface.
 
 Design Goals
 ------------
@@ -53,6 +53,6 @@ The default keybind to open slingshot in the fish shell is `Ctrl+S`.
 
 Known issues
 ------------
-- Scrolling/overflows do not render properly (filtering is not affected.)
+- Scrolling/overflows do not work. (filtering is not affected.)
 - Crashes if user tries to move back from home directory.
 

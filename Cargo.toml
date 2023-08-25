@@ -1,7 +1,10 @@
 [package]
 name = "slingshot"
 version = "0.2.3"
+authors = ["Caio Ishikawa <caio.ishikawa@proton.me"]
 edition = "2021"
+license = "MIT"
+description = "Lightweight command line tool to quickly navigate across folders."
 
 [dependencies]
 crossterm = "0.26.1"
