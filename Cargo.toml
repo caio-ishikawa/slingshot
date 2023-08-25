@@ -1,5 +1,5 @@
 [package]
-name = "slingshot"
+name = "slingshot-term"
 version = "0.2.3"
 authors = ["Caio Ishikawa <caio.ishikawa@proton.me"]
 edition = "2021"
