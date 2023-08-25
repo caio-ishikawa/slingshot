@@ -20,9 +20,13 @@ Dependencies
 
 How to install
 --------------
-- Clone the repository & navigate to cloned directory.
-- Run `make build`
-- Run `make install`
+- Cargo installation:
+    - Run  `cargo install slingshot-term`.
+
+- Build from source:
+    - Clone the repository & navigate to cloned directory.
+    - Run `make build`
+    - Run `make install`
 
 How to use
 ----------
