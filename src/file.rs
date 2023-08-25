@@ -1,7 +1,9 @@
 use crate::styles;
 use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
+use crossterm::terminal;
 use crossterm::{cursor, QueueableCommand};
 use std::borrow::Cow;
+use std::cmp;
 use std::error::Error;
 use std::fs;
 
@@ -103,11 +105,14 @@ pub fn filter_file_data(files: Cow<Vec<FileData>>, search_term: &str) -> Vec<Fil
 
 pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std::io::Stdout) {
     let mut line_index = 1;
+    let (_, height) = terminal::size().unwrap();
+    let t_height = cmp::max(height, 1) - 1;
+    let height_limit = t_height - 1;
 
     stdout.queue(cursor::MoveToRow(1)).unwrap();
     for (i, path) in paths.iter().enumerate() {
         stdout.queue(cursor::MoveToRow(line_index)).unwrap();
-        if i == index {
+        if i == index && i <= height_limit as usize {
             print!("{}{}{}", SetAttribute(Attribute::Bold), i, ResetColor);
 
             stdout.queue(cursor::MoveToColumn(3)).unwrap();
@@ -126,7 +131,7 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 path.shortname,
                 ResetColor
             );
-        } else if path.marked_for_deletion {
+        } else if path.marked_for_deletion && i <= height_limit as usize {
             print!("{}{}{}", SetAttribute(Attribute::Bold), i, ResetColor);
 
             stdout.queue(cursor::MoveToColumn(3)).unwrap();
@@ -137,7 +142,7 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 path.shortname,
                 ResetColor
             );
-        } else {
+        } else if i <= height_limit as usize {
             print!("{}{}", SetForegroundColor(styles::LIGHT_CONTRAST), i);
 
             stdout.queue(cursor::MoveToColumn(3)).unwrap();
