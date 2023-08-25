@@ -6,6 +6,10 @@ edition = "2021"
 license = "MIT"
 description = "Lightweight command line tool to quickly navigate across folders."
 
+[[bin]]
+name = "slingshot"
+path = "src/main.rs"
+
 [dependencies]
 crossterm = "0.26.1"
 phf = {version = "0.11", features=["macros"]}
