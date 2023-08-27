@@ -178,18 +178,18 @@ impl AppState {
             .stdin(std::process::Stdio::piped())
             .output();
 
-        match cmd_res {
+        self.message = match cmd_res {
             Ok(output) => {
                 let stdout_msg = String::from_utf8_lossy(&output.stdout);
                 let stderr_msg = String::from_utf8_lossy(&output.stderr);
                 if stdout_msg == "".to_owned() {
-                    self.message = stderr_msg.trim().to_owned();
+                    stderr_msg.trim().to_owned()
                 } else {
-                    self.message = stdout_msg.trim().to_owned();
+                    stdout_msg.trim().to_owned()
                 }
             }
-            Err(e) => self.message = e.to_string(),
-        }
+            Err(e) => e.to_string(),
+        };
 
         self.user_input = String::from("");
     }
