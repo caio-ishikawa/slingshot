@@ -28,7 +28,7 @@ pub enum AppMode {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub app_mode: AppMode, //TODO: Change this to app_mode
+    pub app_mode: AppMode,
     pub keybind_mode: KeybindMode,
     pub curr_absolute_path: String,
     pub inner_paths: Vec<file::FileData>,

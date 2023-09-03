@@ -1,4 +1,4 @@
-slingshot 0.2.3
+slingshot 0.3.0
 ===============
 
 [![Tests](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/caio-ishikawa/slingshot/actions/workflows/build.yml)
@@ -20,9 +20,6 @@ Dependencies
 
 How to install
 --------------
-- Cargo installation:
-    - Run  `cargo install slingshot-term`.
-
 - Build from source:
     - Clone the repository & navigate to cloned directory.
     - Run `make build`
@@ -30,22 +27,22 @@ How to install
 
 How to use
 ----------
-- Moving up/down:
-    - Arrow Keys
-    - `Ctrl+J`/`Ctrl+K`
+Slingshot aims to closely resemble vim motions to ensure a coherent workflow. 
+Once started, Slingshot defaults to `normal mode`.
 
-- Creating folders/files:
-    - For folders, type the desired name followed by a `/`.
-    - For files, type the name of the desired file with the file extension (e.g. `.py`, `.txt`, etc.)
-    - Confirm creation by pressing Enter.
+Normal mode:
+- Used for navigation.
+- [J, K] can be used to navigate up and down the file list.
+- [H, L] can be used to navigate back one directory, or to enter the selected directory.
+- [I, A] can be used to switch to `insert mode`
 
-- Deleting files/folders:
-    - Marking files/folders for deletion is done by pressing Ctrl+D, which will highlight the item red.
-    - Confirm by pressing `Ctrl+Y`.
+Insert mode:
+- Used for typing the search term. 
+- [Enter] can be used to enter the selected file.
 
-- Command mode:
-    - Toggling between Command Mode and File Explorer can be done by pressing `Ctrl+N`.
-    - To run the command, type it and confirm with Enter.
+Global commands:
+- [`Ctrl+C`] to quit application,
+- [`Ctrl+N`] to run commands.
 
 Fish Shell Integration
 ----------------------

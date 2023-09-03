@@ -1,6 +1,6 @@
 [package]
 name = "slingshot-term"
-version = "0.2.3"
+version = "0.3.0"
 authors = ["Caio Ishikawa <caio.ishikawa@proton.me"]
 edition = "2021"
 license = "MIT"
