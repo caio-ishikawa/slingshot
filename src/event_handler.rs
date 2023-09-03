@@ -108,6 +108,7 @@ pub fn handle_key_modifier(
                 std::process::exit(0);
             }
             KeyCode::Char('n') => {
+                app_state.keybind_mode = KeybindMode::Insert;
                 app_state.toggle_command_mode();
                 return Ok(());
             }
