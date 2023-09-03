@@ -13,6 +13,14 @@ use std::io::{stdout, Write};
 use std::process::Command;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum KeybindMode {
+    Normal,
+    Insert,
+    //Visual,
+    //Deletion,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AppMode {
     FileExplorer,
     Command,
@@ -20,7 +28,8 @@ pub enum AppMode {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub mode: AppMode,
+    pub mode: AppMode, //TODO: Change this to app_mode
+    pub keybind_mode: KeybindMode,
     pub curr_absolute_path: String,
     pub inner_paths: Vec<file::FileData>,
     pub displayed_paths: Vec<file::FileData>,
@@ -57,6 +66,9 @@ impl AppState {
                 );
 
                 print!("{}", self.user_input);
+                if self.keybind_mode == KeybindMode::Normal {
+                    stdout.queue(cursor::MoveTo(0, (self.selected_index + 1) as u16))?;
+                }
                 stdout.flush()?;
             }
             AppMode::Command => {
@@ -303,6 +315,7 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
 
     return Ok(AppState {
         mode: AppMode::FileExplorer,
+        keybind_mode: KeybindMode::Normal,
         curr_absolute_path: cwd.to_owned(),
         inner_paths: formatted_paths.clone(),
         displayed_paths: formatted_paths.clone(),
@@ -340,6 +353,7 @@ mod tests {
 
         let mut app_state = AppState {
             mode: AppMode::FileExplorer,
+            keybind_mode: KeybindMode::Normal,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
@@ -396,6 +410,7 @@ mod tests {
 
         let mut app_state = AppState {
             mode: AppMode::FileExplorer,
+            keybind_mode: KeybindMode::Normal,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
