@@ -13,6 +13,14 @@ use std::io::{stdout, Write};
 use std::process::Command;
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum KeybindMode {
+    Normal,
+    Insert,
+    //Visual,
+    //Deletion,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AppMode {
     FileExplorer,
     Command,
@@ -20,7 +28,8 @@ pub enum AppMode {
 
 #[derive(Clone)]
 pub struct AppState {
-    pub mode: AppMode,
+    pub app_mode: AppMode,
+    pub keybind_mode: KeybindMode,
     pub curr_absolute_path: String,
     pub inner_paths: Vec<file::FileData>,
     pub displayed_paths: Vec<file::FileData>,
@@ -32,7 +41,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn display(&self) -> Result<(), Box<dyn Error>> {
-        match self.mode {
+        match self.app_mode {
             AppMode::FileExplorer => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
                 let mut stdout = stdout();
@@ -57,6 +66,9 @@ impl AppState {
                 );
 
                 print!("{}", self.user_input);
+                if self.keybind_mode == KeybindMode::Normal {
+                    stdout.queue(cursor::MoveTo(0, (self.selected_index + 1) as u16))?;
+                }
                 stdout.flush()?;
             }
             AppMode::Command => {
@@ -195,7 +207,7 @@ impl AppState {
     }
 
     pub fn handle_enter(&mut self) {
-        match self.mode {
+        match self.app_mode {
             AppMode::FileExplorer => self.handle_enter_explorer(),
             AppMode::Command => self.handle_enter_command(),
         }
@@ -253,9 +265,9 @@ impl AppState {
         self.message = String::from("");
         self.update_paths();
 
-        match self.mode {
-            AppMode::FileExplorer => self.mode = AppMode::Command,
-            AppMode::Command => self.mode = AppMode::FileExplorer,
+        match self.app_mode {
+            AppMode::FileExplorer => self.app_mode = AppMode::Command,
+            AppMode::Command => self.app_mode = AppMode::FileExplorer,
         }
     }
 
@@ -302,7 +314,8 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
     let formatted_paths = file::generate_file_data(paths).unwrap();
 
     return Ok(AppState {
-        mode: AppMode::FileExplorer,
+        app_mode: AppMode::FileExplorer,
+        keybind_mode: KeybindMode::Normal,
         curr_absolute_path: cwd.to_owned(),
         inner_paths: formatted_paths.clone(),
         displayed_paths: formatted_paths.clone(),
@@ -339,7 +352,8 @@ mod tests {
         let test_file_data = gen_test_file_data(test_file_names);
 
         let mut app_state = AppState {
-            mode: AppMode::FileExplorer,
+            app_mode: AppMode::FileExplorer,
+            keybind_mode: KeybindMode::Normal,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
@@ -395,7 +409,8 @@ mod tests {
         let test_file_data = gen_test_file_data(test_file_names);
 
         let mut app_state = AppState {
-            mode: AppMode::FileExplorer,
+            app_mode: AppMode::FileExplorer,
+            keybind_mode: KeybindMode::Normal,
             curr_absolute_path: "/Test/test_dir/".to_owned(),
             inner_paths: test_file_data.clone(),
             displayed_paths: test_file_data,
