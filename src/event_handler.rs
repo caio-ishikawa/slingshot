@@ -7,7 +7,6 @@ pub fn handle_key(key_code: KeyCode, app_state: &mut AppState) -> Result<(), Box
     match app_state.keybind_mode {
         KeybindMode::Normal => handle_normal_mode(key_code, app_state),
         KeybindMode::Insert => handle_key_code_insert(key_code, app_state),
-        _ => Ok(()),
     }
 }
 
@@ -142,7 +141,7 @@ mod integration_tests {
         let formatted_paths = file::generate_file_data(paths).expect("Error generating file data");
 
         return AppState {
-            mode: AppMode::FileExplorer,
+            app_mode: AppMode::FileExplorer,
             keybind_mode: KeybindMode::Normal,
             curr_absolute_path: absolute_path,
             inner_paths: formatted_paths.clone(),
@@ -164,11 +163,14 @@ mod integration_tests {
             .map(|fd| fd.shortname.clone())
             .collect();
 
-        handle_key_code_insert(KeyCode::Char('l'), &mut state).unwrap();
+        handle_key(KeyCode::Char('i'), &mut state).unwrap();
+        assert_eq!(state.keybind_mode, KeybindMode::Insert);
+
+        handle_key(KeyCode::Char('l'), &mut state).unwrap();
         assert_eq!(state.displayed_paths.len(), 1);
         assert_eq!(&state.displayed_paths[0].shortname, "llkh.py");
 
-        handle_key_code_insert(KeyCode::Backspace, &mut state).unwrap();
+        handle_key(KeyCode::Backspace, &mut state).unwrap();
         for file in state.clone().displayed_paths {
             assert_eq!(
                 initial_state_displayed_paths.contains(&file.shortname),
@@ -178,7 +180,7 @@ mod integration_tests {
 
         let new_input = ['d', 'i', 'r', '1'];
         for ch in new_input {
-            handle_key_code_insert(KeyCode::Char(ch), &mut state).unwrap();
+            handle_key(KeyCode::Char(ch), &mut state).unwrap();
         }
 
         assert_eq!(state.displayed_paths.len(), 1);
@@ -186,18 +188,18 @@ mod integration_tests {
         let previous_dir = state.clone().curr_absolute_path.to_owned();
         let selected = state.clone().displayed_paths[0].to_owned().absolute;
 
-        handle_key_code_insert(KeyCode::Enter, &mut state).unwrap();
+        handle_key(KeyCode::Enter, &mut state).unwrap();
         assert_eq!(state.curr_absolute_path, selected);
 
-        handle_key_code_insert(KeyCode::Left, &mut state).unwrap();
+        handle_key(KeyCode::Left, &mut state).unwrap();
         assert_eq!(state.curr_absolute_path, previous_dir);
 
         let new_input = ['t', 'e', 's', 't', 'i', 'n', 'g', '.', 'p', 'y'];
         for ch in new_input {
-            handle_key_code_insert(KeyCode::Char(ch), &mut state).unwrap();
+            handle_key(KeyCode::Char(ch), &mut state).unwrap();
         }
 
-        handle_key_code_insert(KeyCode::Enter, &mut state).unwrap();
+        handle_key(KeyCode::Enter, &mut state).unwrap();
         println!("created file");
 
         let path_list: Vec<String> = state
@@ -219,8 +221,11 @@ mod integration_tests {
             .position(|fd| fd.shortname.as_str() == "testing.py")
             .unwrap();
 
-        handle_normal_mode(KeyCode::Char('d'), &mut state).unwrap();
-        handle_normal_mode(KeyCode::Char('y'), &mut state).unwrap();
+        handle_key(KeyCode::Esc, &mut state).unwrap();
+        assert_eq!(state.keybind_mode, KeybindMode::Normal);
+
+        handle_key(KeyCode::Char('d'), &mut state).unwrap();
+        handle_key(KeyCode::Char('y'), &mut state).unwrap();
         println!("Deleted file");
 
         let includes_added_file: Vec<&str> = state
@@ -232,7 +237,7 @@ mod integration_tests {
         assert_eq!(includes_added_file.len(), 0);
 
         handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
-        assert_eq!(state.mode, AppMode::Command);
+        assert_eq!(state.app_mode, AppMode::Command);
 
         let new_input = ['e', 'c', 'h', 'o', ' ', 't', 'e', 's', 't'];
         for ch in new_input {
@@ -243,6 +248,6 @@ mod integration_tests {
         assert_eq!(state.message, "test".to_owned());
 
         handle_key_modifier(KeyCode::Char('n'), KeyModifiers::CONTROL, &mut state).unwrap();
-        assert_eq!(state.mode, AppMode::FileExplorer);
+        assert_eq!(state.app_mode, AppMode::FileExplorer);
     }
 }
