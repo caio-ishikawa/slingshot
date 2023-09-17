@@ -78,6 +78,7 @@ impl AppState {
                 }
 
                 self.display_preview(&mut stdout, width)?;
+                stdout.flush()?;
             }
             AppMode::Command => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
@@ -90,7 +91,7 @@ impl AppState {
                 );
 
                 stdout.queue(cursor::MoveTo(0, 2))?;
-                let msg_split: Vec<&str> = self.message.split("\n").collect();
+                let msg_split: Vec<&str> = self.message.split('\n').collect();
                 if msg_split.len() > 1 {
                     for line in msg_split {
                         println!("{}", line);
@@ -101,7 +102,7 @@ impl AppState {
                 }
 
                 stdout.queue(cursor::MoveTo(0, 1))?;
-                print!("{}{}{} ", SetForegroundColor(styles::ERR), ">", ResetColor);
+                print!("{}>{} ", SetForegroundColor(styles::ERR), ResetColor);
                 print!("{}", self.user_input);
                 stdout.flush()?;
             }
@@ -134,15 +135,9 @@ impl AppState {
     fn display_preview(&self, stdout: &mut Stdout, width: u16) -> Result<(), Box<dyn Error>> {
         match self.app_mode {
             AppMode::FileExplorer => {
-                let image_preview_formats: [&str; 11] = [
-                    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "psd",
-                ];
-
                 if let Some(curr_file) = &self.displayed_paths.get(self.selected_index) {
-                    if image_preview_formats.contains(&curr_file.extension.as_str()) {
-                        stdout.queue(cursor::MoveTo(width / 2, 2))?;
-                        print!("{}", curr_file.iterm_inline_img()?);
-                    }
+                    stdout.queue(cursor::MoveTo(width / 2, 2))?;
+                    print!("{}", curr_file.as_preview_string()?);
 
                     Ok(())
                 } else {
@@ -187,7 +182,7 @@ impl AppState {
     }
 
     pub fn handle_move_back(&mut self) {
-        let mut split_dirs: Vec<&str> = self.curr_absolute_path.split("/").collect();
+        let mut split_dirs: Vec<&str> = self.curr_absolute_path.split('/').collect();
         split_dirs.pop();
 
         let next_dir: String = split_dirs
@@ -205,7 +200,7 @@ impl AppState {
     }
 
     fn handle_enter_explorer(&mut self) {
-        if self.displayed_paths.len() == 0 {
+        if self.displayed_paths.is_empty() {
             self.handle_create();
             return;
         }
@@ -236,7 +231,7 @@ impl AppState {
     }
 
     fn handle_enter_command(&mut self) {
-        let split: Vec<&str> = self.user_input.split(" ").collect();
+        let split: Vec<&str> = self.user_input.split(' ').collect();
         let args: Vec<&str> = split[1..].iter().map(|x| x.to_owned()).collect();
         let cmd_res = Command::new(split[0])
             .args(args)
@@ -248,7 +243,7 @@ impl AppState {
             Ok(output) => {
                 let stdout_msg = String::from_utf8_lossy(&output.stdout);
                 let stderr_msg = String::from_utf8_lossy(&output.stderr);
-                if stdout_msg == "".to_owned() {
+                if stdout_msg == *"" {
                     stderr_msg.trim().to_owned()
                 } else {
                     stdout_msg.trim().to_owned()
@@ -268,12 +263,12 @@ impl AppState {
     }
 
     pub fn handle_create(&mut self) {
-        if self.user_input.contains("/") {
+        if self.user_input.contains('/') {
             if let Err(e) = fs::create_dir(&self.user_input) {
                 self.message = e.to_string();
                 return;
             }
-        } else if self.user_input.contains(".") {
+        } else if self.user_input.contains('.') {
             if let Err(e) = fs::File::create(self.user_input.clone()) {
                 self.message = e.to_string();
                 return;
@@ -297,7 +292,6 @@ impl AppState {
             "Press Ctrl + Y to confirm deletion of files: {:?}",
             marked_files
         );
-        return;
     }
 
     pub fn handle_confirm_delete(&mut self) {
@@ -333,7 +327,7 @@ impl AppState {
         let paths = file::get_paths(&self.curr_absolute_path);
         let updated_file_data_res = file::generate_file_data(paths);
         if let Ok(value) = updated_file_data_res {
-            self.user_input = "".to_owned();
+            self.user_input = String::new();
             self.inner_paths = value.clone();
             self.displayed_paths = value.clone();
         } else if let Err(e) = updated_file_data_res {
@@ -351,8 +345,8 @@ impl AppState {
             self.inner_paths = value.clone();
             self.displayed_paths = value;
             self.selected_index = 0;
-            self.user_input = "".to_owned();
-            self.message = "".to_owned();
+            self.user_input = String::new();
+            self.message = String::new();
         } else if let Err(e) = final_paths {
             self.message = e.to_string();
             return;
@@ -367,7 +361,7 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
     let paths = file::get_paths(cwd);
     let formatted_paths = file::generate_file_data(paths).unwrap();
 
-    return Ok(AppState {
+    Ok(AppState {
         app_mode: AppMode::FileExplorer,
         keybind_mode: KeybindMode::Normal,
         curr_absolute_path: cwd.to_owned(),
@@ -377,7 +371,7 @@ pub fn initial_app_state() -> Result<AppState, Box<dyn Error>> {
         user_input: "".to_owned(),
         message: "".to_owned(),
         command_mode: false,
-    });
+    })
 }
 
 #[cfg(test)]

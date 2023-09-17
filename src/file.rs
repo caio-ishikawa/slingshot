@@ -28,6 +28,25 @@ impl FileData {
         self.marked_for_deletion = !self.marked_for_deletion;
     }
 
+    pub fn as_preview_string(&self) -> Result<String, Box<dyn Error>> {
+        let image_preview_formats: [&str; 11] = [
+            "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "psd",
+        ];
+
+        let text_preview_formats: [&str; 19] = [
+            "txt", "pdf", "doc", "md", "rs", "py", "js", "ts", "svelte", "html", "hs", "ml", "c", "cpp", "h",
+            "zig", "go", "json", "toml"
+        ];
+
+
+        match self.extension.as_str() {
+            "" => Ok(String::from("directory")),
+            x if image_preview_formats.contains(&x) => return self.iterm_inline_img(),
+            x if text_preview_formats.contains(&x) => Ok(String::from("text document")),
+            _ => Ok(String::from("Unsupported file extension"))
+        }
+    }
+
     fn as_bytes(&self) -> Result<Vec<u8>, Box<dyn Error>> {
         let file = fs::File::open(&self.absolute)?;
         let mut reader = BufReader::new(file);
@@ -37,7 +56,7 @@ impl FileData {
         Ok(content)
     }
 
-    pub fn iterm_inline_img(&self) -> Result<String, Box<dyn Error>> {
+    fn iterm_inline_img(&self) -> Result<String, Box<dyn Error>> {
         let encoded = general_purpose::STANDARD.encode(self.as_bytes()?);
 
         let iterm_command = format!(
@@ -46,13 +65,12 @@ impl FileData {
             encoded,
         );
 
-        return Ok(iterm_command);
+        Ok(iterm_command)
     }
 }
 
 pub fn get_paths(source: &str) -> fs::ReadDir {
-    let paths = fs::read_dir(source).expect("Could not find paths");
-    return paths;
+    fs::read_dir(source).expect("Could not find paths")
 }
 
 pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn Error>> {
@@ -61,15 +79,32 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
         let path = path_result.expect("Failed to get DirEntry from path");
         let path_str = path.path().display().to_string();
 
+        let path = std::path::Path::new(&path_str);
+
+
         let mut extension = String::new();
-        if let Some(ext) = std::path::Path::new(&path_str)
-            .extension()
-            .and_then(OsStr::to_str)
-        {
+        let mut file_name = String::new();
+        if let Some(ext) = path.extension().and_then(OsStr::to_str) {
             extension = ext.to_owned();
+        } else {
+            if path.is_file() {
+                if let Some(t) = path.file_name().and_then(OsStr::to_str) {
+                    extension = t.to_owned();
+                    file_name = t.to_owned();
+                } else {
+                    panic!("Could not get file name");
+                }
+            }
         }
 
-        let icon = if !path_str.contains(".") {
+        if &file_name == "" {
+            let split: Vec<&str> = path_str.split("/").collect();
+            if let Some(last_index) = split.last() {
+                file_name = last_index.to_owned().to_owned()
+            }
+        }
+
+        let icon = if path.is_dir() {
             styles::FOLDER_ICON.to_owned()
         } else if styles::ICONS.contains_key(&extension) {
             styles::ICONS[&extension].to_owned()
@@ -77,26 +112,27 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
             styles::FILE_ICON.to_owned()
         };
 
-        let split: Vec<&str> = path_str.split("/").collect();
-        if let Some(last_index) = split.last() {
-            let file_data = FileData {
-                shortname: last_index.to_owned().to_owned(),
-                absolute: path_str.clone(),
-                extension,
-                icon,
-                marked_for_deletion: false,
-            };
 
-            output.push(file_data);
-        }
+
+        let file_data = FileData {
+            shortname: file_name,
+            absolute: path_str.clone(),
+            extension,
+            icon,
+            marked_for_deletion: false,
+        };
+
+        output.push(file_data);
     }
+
     Ok(output)
 }
 
 pub fn filter_file_data(files: Cow<Vec<FileData>>, search_term: &str) -> Vec<FileData> {
     let mut output: Vec<FileData> = files
         .into_owned()
-        .into_iter()
+        .iter()
+        .cloned()
         .filter(|fd| {
             fd.shortname
                 .to_lowercase()

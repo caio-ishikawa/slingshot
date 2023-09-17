@@ -1,6 +1,5 @@
 use std::error::Error;
 
-use crossterm;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::state_handler::{AppState, KeybindMode};
@@ -16,47 +15,47 @@ fn handle_normal_mode(key_code: KeyCode, app_state: &mut AppState) -> Result<(),
     match key_code {
         KeyCode::Char('i') => {
             app_state.keybind_mode = KeybindMode::Insert;
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('a') => {
             app_state.keybind_mode = KeybindMode::Insert;
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('h') => {
             app_state.handle_move_back();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('j') => {
             app_state.update_selected_index(KeyCode::Down);
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('k') => {
             app_state.update_selected_index(KeyCode::Up);
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('l') => {
             app_state.handle_enter();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('d') => {
             app_state.handle_mark_delete();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('y') => {
             app_state.handle_confirm_delete();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Char('n') => {
             app_state.toggle_command_mode();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Enter => {
             app_state.handle_enter();
-            return Ok(());
+            Ok(())
         }
         _ => {
             app_state.handle_unsupported_input();
-            return Ok(());
+            Ok(())
         }
     }
 }
@@ -68,33 +67,33 @@ pub fn handle_key_code_insert(
     match key_code {
         KeyCode::Char(c) => {
             app_state.handle_user_input_change(c);
-            return Ok(());
+            Ok(())
         }
         KeyCode::Backspace => {
             app_state.handle_backspace();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Enter => {
             app_state.handle_enter();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Up | KeyCode::Down => {
             app_state.update_selected_index(key_code);
-            return Ok(());
+            Ok(())
         }
         KeyCode::Left => {
             app_state.handle_move_back();
-            return Ok(());
+            Ok(())
         }
         KeyCode::Esc => {
-            if app_state.displayed_paths.len() == 0 {
+            if app_state.displayed_paths.is_empty() {
                 app_state.user_input = "".to_owned();
                 app_state.displayed_paths = app_state.inner_paths.clone();
             }
             app_state.keybind_mode = KeybindMode::Normal;
-            return Ok(());
+            Ok(())
         }
-        _ => return Ok(()),
+        _ => Ok(()),
     }
 }
 
