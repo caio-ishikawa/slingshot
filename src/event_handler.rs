@@ -1,7 +1,9 @@
-use crate::state_handler::{AppState, KeybindMode};
+use std::error::Error;
+
 use crossterm;
 use crossterm::event::{KeyCode, KeyModifiers};
-use std::error::Error;
+
+use crate::state_handler::{AppState, KeybindMode};
 
 pub fn handle_key(key_code: KeyCode, app_state: &mut AppState) -> Result<(), Box<dyn Error>> {
     match app_state.keybind_mode {

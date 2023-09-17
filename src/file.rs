@@ -1,16 +1,24 @@
-use crate::styles;
-use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
-use crossterm::terminal;
-use crossterm::{cursor, QueueableCommand};
+use base64::engine::general_purpose;
+use base64::Engine;
+
 use std::borrow::Cow;
 use std::cmp;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
+use std::io::{BufReader, Read};
+
+use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
+use crossterm::terminal;
+use crossterm::{cursor, QueueableCommand};
+
+use crate::styles;
 
 #[derive(Clone, Debug)]
 pub struct FileData {
     pub shortname: String,
     pub absolute: String,
+    pub extension: String,
     pub icon: String,
     pub marked_for_deletion: bool,
 }
@@ -18,6 +26,27 @@ pub struct FileData {
 impl FileData {
     pub fn toggle_mark_for_deletion(&mut self) {
         self.marked_for_deletion = !self.marked_for_deletion;
+    }
+
+    fn as_bytes(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let file = fs::File::open(&self.absolute)?;
+        let mut reader = BufReader::new(file);
+        let mut content = Vec::new();
+        reader.read_to_end(&mut content)?;
+
+        Ok(content)
+    }
+
+    pub fn iterm_inline_img(&self) -> Result<String, Box<dyn Error>> {
+        let encoded = general_purpose::STANDARD.encode(self.as_bytes()?);
+
+        let iterm_command = format!(
+            "\x1b]1337;File=inline=1;size={}:{}\x07",
+            encoded.len() - 100,
+            encoded,
+        );
+
+        return Ok(iterm_command);
     }
 }
 
@@ -32,13 +61,28 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
         let path = path_result.expect("Failed to get DirEntry from path");
         let path_str = path.path().display().to_string();
 
-        let icon = match_icon(&path_str);
+        let mut extension = String::new();
+        if let Some(ext) = std::path::Path::new(&path_str)
+            .extension()
+            .and_then(OsStr::to_str)
+        {
+            extension = ext.to_owned();
+        }
+
+        let icon = if !path_str.contains(".") {
+            styles::FOLDER_ICON.to_owned()
+        } else if styles::ICONS.contains_key(&extension) {
+            styles::ICONS[&extension].to_owned()
+        } else {
+            styles::FILE_ICON.to_owned()
+        };
 
         let split: Vec<&str> = path_str.split("/").collect();
         if let Some(last_index) = split.last() {
             let file_data = FileData {
                 shortname: last_index.to_owned().to_owned(),
                 absolute: path_str.clone(),
+                extension,
                 icon,
                 marked_for_deletion: false,
             };
@@ -47,31 +91,6 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
         }
     }
     Ok(output)
-}
-
-fn match_icon(path: &str) -> String {
-    if !path.contains(".") {
-        return styles::FOLDER_ICON.to_owned();
-    }
-
-    let split_path: Vec<&str> = path.split(".").collect();
-    if split_path[0] == "." || split_path[split_path.len() - 1] == "." {
-        return styles::FILE_ICON.to_owned();
-    }
-
-    let mut dot_index = 0;
-
-    for (i, item) in split_path.iter().enumerate() {
-        if item == &"." {
-            dot_index = i;
-        }
-    }
-
-    if styles::ICONS.contains_key(split_path[dot_index + 1]) {
-        return styles::ICONS[split_path[dot_index + 1]].to_owned();
-    }
-
-    return styles::FILE_ICON.to_owned();
 }
 
 pub fn filter_file_data(files: Cow<Vec<FileData>>, search_term: &str) -> Vec<FileData> {
@@ -104,18 +123,15 @@ pub fn filter_file_data(files: Cow<Vec<FileData>>, search_term: &str) -> Vec<Fil
 }
 
 pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std::io::Stdout) {
-    let mut line_index = 1;
+    let mut line_index = 2;
     let (_, height) = terminal::size().unwrap();
-    let t_height = cmp::max(height, 1) - 1;
+    let t_height = cmp::max(height, 1);
     let height_limit = t_height - 1;
 
     stdout.queue(cursor::MoveToRow(1)).unwrap();
     for (i, path) in paths.iter().enumerate() {
         stdout.queue(cursor::MoveToRow(line_index)).unwrap();
         if i == index && i <= height_limit as usize {
-            print!("{}{}{}", SetAttribute(Attribute::Bold), i, ResetColor);
-
-            stdout.queue(cursor::MoveToColumn(3)).unwrap();
             print!("{}{}", path.icon, ResetColor);
 
             let fg_color = if path.marked_for_deletion {
@@ -132,9 +148,6 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 ResetColor
             );
         } else if path.marked_for_deletion && i <= height_limit as usize {
-            print!("{}{}{}", SetAttribute(Attribute::Bold), i, ResetColor);
-
-            stdout.queue(cursor::MoveToColumn(3)).unwrap();
             print!("{}{}", path.icon, ResetColor);
             print!(
                 "{}{}{}",
@@ -143,9 +156,6 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 ResetColor
             );
         } else if i <= height_limit as usize {
-            print!("{}{}", SetForegroundColor(styles::LIGHT_CONTRAST), i);
-
-            stdout.queue(cursor::MoveToColumn(3)).unwrap();
             print!("{}", path.icon);
             print!(
                 "{}{}{}",
@@ -172,6 +182,7 @@ mod file_tests {
             let file_data = FileData {
                 shortname: shortname.to_owned(),
                 absolute: "test-absolute".to_owned(),
+                extension: "py".to_owned(),
                 icon: "test-icon".to_owned(),
                 marked_for_deletion: false,
             };

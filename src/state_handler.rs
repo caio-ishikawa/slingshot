@@ -1,16 +1,18 @@
-use crate::file;
-use crate::styles;
-use crossterm::event::KeyCode;
-use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
-use crossterm::terminal;
-use crossterm::{cursor, QueueableCommand};
 use std::borrow::Cow;
 use std::cmp;
 use std::env;
 use std::error::Error;
 use std::fs::{self, metadata};
-use std::io::{stdout, Write};
+use std::io::{stdout, Stdout, Write};
 use std::process::Command;
+
+use crossterm::event::KeyCode;
+use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
+use crossterm::terminal;
+use crossterm::{cursor, QueueableCommand};
+
+use crate::file;
+use crate::styles;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum KeybindMode {
@@ -41,11 +43,17 @@ pub struct AppState {
 
 impl AppState {
     pub fn display(&self) -> Result<(), Box<dyn Error>> {
+        let mut stdout = stdout();
         match self.app_mode {
             AppMode::FileExplorer => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-                let mut stdout = stdout();
-                stdout.queue(cursor::MoveTo(0, 1))?;
+
+                let (width, height) = terminal::size()?;
+                let t_height = cmp::max(height, 1);
+                self.display_grid(&mut stdout, width, t_height)?;
+
+                stdout.queue(cursor::MoveTo(0, 2))?;
+                stdout.queue(cursor::Hide)?;
 
                 file::print_file_data(
                     Cow::Borrowed(&self.displayed_paths),
@@ -53,8 +61,6 @@ impl AppState {
                     &mut stdout,
                 );
 
-                let (_, height) = terminal::size()?;
-                let t_height = cmp::max(height, 1) - 1;
                 stdout.queue(cursor::MoveTo(0, t_height))?;
                 print!("{}{}", self.message, ResetColor);
 
@@ -64,22 +70,25 @@ impl AppState {
                     SetAttribute(Attribute::Bold),
                     self.curr_absolute_path
                 );
+                stdout.flush()?;
 
                 print!("{}", self.user_input);
                 if self.keybind_mode == KeybindMode::Normal {
                     stdout.queue(cursor::MoveTo(0, (self.selected_index + 1) as u16))?;
                 }
-                stdout.flush()?;
+
+                self.display_preview(&mut stdout, width)?;
             }
             AppMode::Command => {
                 print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
-                let mut stdout = stdout();
+
                 stdout.queue(cursor::MoveTo(0, 0))?;
                 print!(
                     "{}{}",
                     SetAttribute(Attribute::Bold),
                     self.curr_absolute_path
                 );
+
                 stdout.queue(cursor::MoveTo(0, 2))?;
                 let msg_split: Vec<&str> = self.message.split("\n").collect();
                 if msg_split.len() > 1 {
@@ -90,6 +99,7 @@ impl AppState {
                 } else {
                     print!("{}", self.message);
                 }
+
                 stdout.queue(cursor::MoveTo(0, 1))?;
                 print!("{}{}{} ", SetForegroundColor(styles::ERR), ">", ResetColor);
                 print!("{}", self.user_input);
@@ -97,6 +107,50 @@ impl AppState {
             }
         }
         Ok(())
+    }
+
+    fn display_grid(
+        &self,
+        stdout: &mut Stdout,
+        width: u16,
+        height: u16,
+    ) -> Result<(), Box<dyn Error>> {
+        for i in 0..width {
+            print!("─");
+            stdout.queue(cursor::MoveTo(i, 1))?;
+        }
+        for i in 1..height {
+            if i == 2 {
+                print!("┬");
+            } else {
+                print!("│");
+            }
+            stdout.queue(cursor::MoveTo(width / 2 - 1, i))?;
+        }
+        stdout.flush()?;
+        Ok(())
+    }
+
+    fn display_preview(&self, stdout: &mut Stdout, width: u16) -> Result<(), Box<dyn Error>> {
+        match self.app_mode {
+            AppMode::FileExplorer => {
+                let image_preview_formats: [&str; 11] = [
+                    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "psd",
+                ];
+
+                if let Some(curr_file) = &self.displayed_paths.get(self.selected_index) {
+                    if image_preview_formats.contains(&curr_file.extension.as_str()) {
+                        stdout.queue(cursor::MoveTo(width / 2, 2))?;
+                        print!("{}", curr_file.iterm_inline_img()?);
+                    }
+
+                    Ok(())
+                } else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
     }
 
     pub fn handle_user_input_change(&mut self, to_push: char) {
@@ -337,6 +391,7 @@ mod tests {
                 shortname: name.to_owned(),
                 absolute: "".to_owned(),
                 icon: "".to_owned(),
+                extension: "".to_owned(),
                 marked_for_deletion: false,
             };
             test_file_data.push(fd);

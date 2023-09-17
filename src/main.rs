@@ -12,6 +12,7 @@ mod styles;
 fn start_slingshot(starting_state: &state_handler::AppState) -> Result<(), Box<dyn Error>> {
     let polling_interval = Duration::from_millis(10);
     let mut app_state = starting_state.clone();
+    //app_state.display_files()?;
     app_state.display()?;
 
     loop {
