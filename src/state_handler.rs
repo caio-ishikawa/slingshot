@@ -11,6 +11,11 @@ use crossterm::style::{Attribute, ResetColor, SetAttribute, SetForegroundColor};
 use crossterm::terminal;
 use crossterm::{cursor, QueueableCommand};
 
+use syntect::easy::HighlightLines;
+use syntect::parsing::SyntaxSet;
+use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
+use syntect::highlighting::{ThemeSet, Style};
+
 use crate::file;
 use crate::styles;
 
@@ -42,6 +47,7 @@ pub struct AppState {
 }
 
 impl AppState {
+    // Prints all the UI elements according to the appmode
     pub fn display(&self) -> Result<(), Box<dyn Error>> {
         let mut stdout = stdout();
         match self.app_mode {
@@ -50,7 +56,7 @@ impl AppState {
 
                 let (width, height) = terminal::size()?;
                 let t_height = cmp::max(height, 1);
-                self.display_grid(&mut stdout, width, t_height)?;
+                //self.display_grid(&mut stdout, width, t_height)?;
 
                 stdout.queue(cursor::MoveTo(0, 2))?;
                 stdout.queue(cursor::Hide)?;
@@ -77,7 +83,7 @@ impl AppState {
                     stdout.queue(cursor::MoveTo(0, (self.selected_index + 1) as u16))?;
                 }
 
-                self.display_preview(&mut stdout, width)?;
+                self.display_preview(&mut stdout, width, height)?;
                 stdout.flush()?;
             }
             AppMode::Command => {
@@ -110,35 +116,61 @@ impl AppState {
         Ok(())
     }
 
-    fn display_grid(
-        &self,
-        stdout: &mut Stdout,
-        width: u16,
-        height: u16,
-    ) -> Result<(), Box<dyn Error>> {
-        for i in 0..width {
-            print!("─");
-            stdout.queue(cursor::MoveTo(i, 1))?;
-        }
-        for i in 1..height {
-            if i == 2 {
-                print!("┬");
-            } else {
-                print!("│");
-            }
-            stdout.queue(cursor::MoveTo(width / 2 - 1, i))?;
-        }
-        stdout.flush()?;
-        Ok(())
-    }
+    // Prints the preview for the currently selected file.
+    // Uses a method for the FileData enum to get the contents of the file as a string based on the
+    // file extension.
+    fn display_preview(&self, stdout: &mut Stdout, width: u16, height: u16) -> Result<(), Box<dyn Error>> {
+        let mut y_index = 1; //TODO: these formatting-related values should be constants.
 
-    fn display_preview(&self, stdout: &mut Stdout, width: u16) -> Result<(), Box<dyn Error>> {
         match self.app_mode {
             AppMode::FileExplorer => {
+                let ps = SyntaxSet::load_defaults_newlines();
+                let ts = ThemeSet::load_defaults();
                 if let Some(curr_file) = &self.displayed_paths.get(self.selected_index) {
-                    stdout.queue(cursor::MoveTo(width / 2, 2))?;
-                    print!("{}", curr_file.as_preview_string()?);
+                    stdout.queue(cursor::MoveTo(width / 2, y_index))?;
+                    let (preview_str, ignore_overflow) = curr_file.as_preview_string(height * (width / 2))?;
+                    let horizontal_line: String = std::iter::repeat("━").take(width as usize / 2).collect();
+                    print!("┏{horizontal_line}");
 
+                    if ignore_overflow {
+                        stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
+                        print!("{}", preview_str);
+                        stdout.queue(cursor::MoveTo(width / 2, y_index + 2))?;
+                        print!("┗{horizontal_line}");
+                        stdout.flush()?;
+                        return Ok(());
+                    } else {
+                        if let Some(syntax) = ps.find_syntax_by_extension(&curr_file.extension) {
+                            // it is possible to change attributes via t.settings.<setting>. e.g.
+                            // background
+                            let t = ts.themes["base16-ocean.dark"].clone();
+                            let mut h = HighlightLines::new(syntax, &t);
+
+                            for line in LinesWithEndings::from(&preview_str) {
+                                y_index += 1;
+                                stdout.queue(cursor::MoveTo(width / 2, y_index))?;
+
+                                let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).expect("range");
+                                let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
+
+                                print!("┃ {}{}", escaped, ResetColor);
+                                stdout.flush()?;
+
+                                if y_index == height - 2 {
+                                    stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
+                                    print!("┗{horizontal_line}");
+                                    stdout.flush()?;
+                                    return Ok(());
+                                }
+                            }
+                        } else {
+                            print!("unsupported syntax");
+                        }
+                    }
+
+                    stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
+                    print!("┗{horizontal_line}");
+                    stdout.flush()?;
                     Ok(())
                 } else {
                     Ok(())
@@ -148,18 +180,22 @@ impl AppState {
         }
     }
 
+    // Updates the user_input field and the filtered results
     pub fn handle_user_input_change(&mut self, to_push: char) {
         self.user_input.push(to_push);
         self.displayed_paths =
             file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.user_input);
     }
 
+    // Updates the user_input field and the filtered results
+    // TODO: Incorporate into handle_user_input_change
     pub fn handle_backspace(&mut self) {
         self.user_input.pop();
         self.displayed_paths =
             file::filter_file_data(Cow::Borrowed(&self.inner_paths), &self.user_input);
     }
 
+    // Updates the selected index of the file according to pressed key.
     pub fn update_selected_index(&mut self, action: KeyCode) {
         let mut updated_index = 0;
         let total_dirs = self.displayed_paths.len() - 1;
@@ -181,6 +217,9 @@ impl AppState {
         self.selected_index = updated_index;
     }
 
+    // Moves back one directory based on the current absolute path.
+    // TODO: Use std::path::Path and std::file::File instead of the absolute path to avoid crashing
+    // when moving back from the home directory.
     pub fn handle_move_back(&mut self) {
         let mut split_dirs: Vec<&str> = self.curr_absolute_path.split('/').collect();
         split_dirs.pop();
@@ -199,6 +238,8 @@ impl AppState {
         self.update_post_move(&next_dir);
     }
 
+    // Handles Enter key press in FileExploerer mode.
+    // Either opens a file in NeoVim or enters a new directory, updating the curernt state.
     fn handle_enter_explorer(&mut self) {
         if self.displayed_paths.is_empty() {
             self.handle_create();
@@ -230,6 +271,8 @@ impl AppState {
         self.update_post_move(&selected.absolute.clone());
     }
 
+    // Handles enter key press in Command mode.
+    // Attemtps to run the command in self.user_input synchronously, and displays the output.
     fn handle_enter_command(&mut self) {
         let split: Vec<&str> = self.user_input.split(' ').collect();
         let args: Vec<&str> = split[1..].iter().map(|x| x.to_owned()).collect();
@@ -255,6 +298,7 @@ impl AppState {
         self.user_input = String::from("");
     }
 
+    // Delegates to enter handler function depdending on current mode.
     pub fn handle_enter(&mut self) {
         match self.app_mode {
             AppMode::FileExplorer => self.handle_enter_explorer(),
@@ -262,6 +306,8 @@ impl AppState {
         }
     }
 
+    // Creates file with name used in self.user_input. It distinguishes between file and folder
+    // creation depending on the use of '/' and '.' characters.
     pub fn handle_create(&mut self) {
         if self.user_input.contains('/') {
             if let Err(e) = fs::create_dir(&self.user_input) {

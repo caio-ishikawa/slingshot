@@ -28,25 +28,27 @@ impl FileData {
         self.marked_for_deletion = !self.marked_for_deletion;
     }
 
-    pub fn as_preview_string(&self) -> Result<String, Box<dyn Error>> {
+    // Returns a string used to display the file preview. It checks the file extension to determine
+    // the logic to compute the return string. Unsupported file extension returns generic metadata.
+    pub fn as_preview_string(&self, char_limit: u16) -> Result<(String, bool), Box<dyn Error>> {
         let image_preview_formats: [&str; 11] = [
             "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "psd",
         ];
 
-        let text_preview_formats: [&str; 19] = [
-            "txt", "pdf", "doc", "md", "rs", "py", "js", "ts", "svelte", "html", "hs", "ml", "c", "cpp", "h",
-            "zig", "go", "json", "toml"
+        let text_preview_formats: [&str; 22] = [
+            "txt", "pdf", "doc", "md", "rs", "py", "js", "ts", "svelte", "html", "hs", "ml", "c",
+            "cpp", "h", "zig", "go", "json", "toml", "MAKEFILE", "Makefile", "makefile",
         ];
 
-
         match self.extension.as_str() {
-            "" => Ok(String::from("directory")),
+            "" => Ok((String::from("directory"), false)),
             x if image_preview_formats.contains(&x) => return self.iterm_inline_img(),
-            x if text_preview_formats.contains(&x) => Ok(String::from("text document")),
-            _ => Ok(String::from("Unsupported file extension"))
+            x if text_preview_formats.contains(&x) => return self.text_preview(char_limit),
+            _ => Ok((String::from("Unsupported file extension"), false)),
         }
     }
 
+    // Returns a vectory of bytes representing the content of the file.
     fn as_bytes(&self) -> Result<Vec<u8>, Box<dyn Error>> {
         let file = fs::File::open(&self.absolute)?;
         let mut reader = BufReader::new(file);
@@ -56,7 +58,10 @@ impl FileData {
         Ok(content)
     }
 
-    fn iterm_inline_img(&self) -> Result<String, Box<dyn Error>> {
+    // Returns an iTerm Image Protocol encoded string, which when printed, will display a picture
+    // in supported terminals.
+    // Read more: https://iterm2.com/documentation-images.html
+    fn iterm_inline_img(&self) -> Result<(String, bool), Box<dyn Error>> {
         let encoded = general_purpose::STANDARD.encode(self.as_bytes()?);
 
         let iterm_command = format!(
@@ -65,10 +70,29 @@ impl FileData {
             encoded,
         );
 
-        Ok(iterm_command)
+        Ok((iterm_command, true))
+    }
+
+    // Returns a string representing the contents of the file. The length of the string is capped
+    // based on the char_limit parameter. This parameter represents half of the resolution of the
+    // terminal, but does not take into account newline characters, meaning this string cannot be
+    // printed directly without the overflow affecting the UI.
+    fn text_preview(&self, char_limit: u16) -> Result<(String, bool), Box<dyn Error>> {
+        let mut output = String::new();
+        let bytes = self.as_bytes()?;
+        for i in 0..char_limit {
+            if let Some(byte) = bytes.get(i as usize) { 
+                output.push(*byte as char);
+            } else {
+                return Ok((output, false));
+            }
+        }
+
+        Ok((output, false))
     }
 }
 
+//TODO: remove this
 pub fn get_paths(source: &str) -> fs::ReadDir {
     fs::read_dir(source).expect("Could not find paths")
 }
@@ -81,24 +105,21 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
 
         let path = std::path::Path::new(&path_str);
 
-
         let mut extension = String::new();
         let mut file_name = String::new();
         if let Some(ext) = path.extension().and_then(OsStr::to_str) {
             extension = ext.to_owned();
-        } else {
-            if path.is_file() {
-                if let Some(t) = path.file_name().and_then(OsStr::to_str) {
-                    extension = t.to_owned();
-                    file_name = t.to_owned();
-                } else {
-                    panic!("Could not get file name");
-                }
+        } else if path.is_file() {
+            if let Some(t) = path.file_name().and_then(OsStr::to_str) {
+                extension = t.to_owned();
+                file_name = t.to_owned();
+            } else {
+                panic!("Could not get file name");
             }
         }
 
-        if &file_name == "" {
-            let split: Vec<&str> = path_str.split("/").collect();
+        if file_name.is_empty() {
+            let split: Vec<&str> = path_str.split('/').collect();
             if let Some(last_index) = split.last() {
                 file_name = last_index.to_owned().to_owned()
             }
@@ -111,8 +132,6 @@ pub fn generate_file_data(paths: fs::ReadDir) -> Result<Vec<FileData>, Box<dyn E
         } else {
             styles::FILE_ICON.to_owned()
         };
-
-
 
         let file_data = FileData {
             shortname: file_name,

@@ -3,6 +3,7 @@ use std::panic;
 use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyModifiers};
+use crossterm::{execute, ExecutableCommand};
 
 mod event_handler;
 mod file;
@@ -41,6 +42,11 @@ fn main() {
     }));
 
     crossterm::terminal::enable_raw_mode().expect("Could not enable raw mode");
+    
+    execute!(
+        std::io::stdout(),
+        crossterm::terminal::DisableLineWrap
+    );
 
     let initial_app_state =
         state_handler::initial_app_state().expect("Error creating initial state");

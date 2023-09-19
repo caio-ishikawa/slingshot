@@ -14,3 +14,5 @@ path = "src/main.rs"
 crossterm = "0.26.1"
 phf = {version = "0.11", features=["macros"]}
 base64 = "0.21.4"
+syntect = "5.0"
+
