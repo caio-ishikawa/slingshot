@@ -42,11 +42,8 @@ fn main() {
     }));
 
     crossterm::terminal::enable_raw_mode().expect("Could not enable raw mode");
-    
-    execute!(
-        std::io::stdout(),
-        crossterm::terminal::DisableLineWrap
-    );
+
+    execute!(std::io::stdout(), crossterm::terminal::DisableLineWrap);
 
     let initial_app_state =
         state_handler::initial_app_state().expect("Error creating initial state");

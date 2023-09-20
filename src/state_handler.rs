@@ -12,9 +12,9 @@ use crossterm::terminal;
 use crossterm::{cursor, QueueableCommand};
 
 use syntect::easy::HighlightLines;
+use syntect::highlighting::{Style, ThemeSet};
 use syntect::parsing::SyntaxSet;
 use syntect::util::{as_24_bit_terminal_escaped, LinesWithEndings};
-use syntect::highlighting::{ThemeSet, Style};
 
 use crate::file;
 use crate::styles;
@@ -56,16 +56,20 @@ impl AppState {
 
                 let (width, height) = terminal::size()?;
                 let t_height = cmp::max(height, 1);
-                //self.display_grid(&mut stdout, width, t_height)?;
 
                 stdout.queue(cursor::MoveTo(0, 2))?;
                 stdout.queue(cursor::Hide)?;
 
-                file::print_file_data(
+                let longest_file_name = file::print_file_data(
                     Cow::Borrowed(&self.displayed_paths),
                     self.selected_index,
                     &mut stdout,
-                );
+                )?;
+
+                let preview_start_pos = longest_file_name + 6;
+
+                // todo: x_start should be 70-80% of total width
+                self.display_grid(&mut stdout, 2, preview_start_pos, width, height)?;
 
                 stdout.queue(cursor::MoveTo(0, t_height))?;
                 print!("{}{}", self.message, ResetColor);
@@ -83,7 +87,8 @@ impl AppState {
                     stdout.queue(cursor::MoveTo(0, (self.selected_index + 1) as u16))?;
                 }
 
-                self.display_preview(&mut stdout, width, height)?;
+                self.display_preview(&mut stdout, preview_start_pos, width, height)?;
+                self.display_grid(&mut stdout, 2, preview_start_pos, width, height)?;
                 stdout.flush()?;
             }
             AppMode::Command => {
@@ -116,27 +121,75 @@ impl AppState {
         Ok(())
     }
 
+    fn display_grid(
+        &self,
+        stdout: &mut Stdout,
+        y_start: u16,
+        x_start: u16,
+        width: u16,
+        height: u16,
+    ) -> Result<(), Box<dyn Error>> {
+        stdout.queue(cursor::MoveTo(0, y_start))?;
+        let horizontal_files: String = std::iter::repeat("━")
+            .take((x_start - 2) as usize)
+            .collect();
+        print!("┏{horizontal_files}┓");
+
+        stdout.queue(cursor::MoveTo(x_start, y_start))?;
+        let horizontal_preview: String = std::iter::repeat("━")
+            .take(((width - x_start) - 2) as usize)
+            .collect();
+        print!("┏{horizontal_preview}┓");
+
+        for i in y_start + 1..height {
+            stdout.queue(cursor::MoveTo(0, i))?;
+            print!("┃");
+
+            stdout.queue(cursor::MoveTo(x_start - 1, i))?;
+            print!("┃");
+
+            stdout.queue(cursor::MoveTo(x_start, i))?;
+            print!("┃");
+
+            stdout.queue(cursor::MoveTo(width, i))?;
+            print!("┃");
+        }
+
+        stdout.queue(cursor::MoveTo(0, height))?;
+        print!("┗{horizontal_files}┛");
+
+        stdout.queue(cursor::MoveTo(x_start, height))?;
+        print!("┗{horizontal_preview}┛");
+        stdout.flush()?;
+        Ok(())
+    }
+
     // Prints the preview for the currently selected file.
     // Uses a method for the FileData enum to get the contents of the file as a string based on the
     // file extension.
-    fn display_preview(&self, stdout: &mut Stdout, width: u16, height: u16) -> Result<(), Box<dyn Error>> {
-        let mut y_index = 1; //TODO: these formatting-related values should be constants.
+    fn display_preview(
+        &self,
+        stdout: &mut Stdout,
+        horizontal_bound: u16,
+        width: u16,
+        height: u16,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut y_index = 2; //TODO: these formatting-related values should be constants.
+        let padding = 2;
 
         match self.app_mode {
             AppMode::FileExplorer => {
                 let ps = SyntaxSet::load_defaults_newlines();
                 let ts = ThemeSet::load_defaults();
                 if let Some(curr_file) = &self.displayed_paths.get(self.selected_index) {
-                    stdout.queue(cursor::MoveTo(width / 2, y_index))?;
-                    let (preview_str, ignore_overflow) = curr_file.as_preview_string(height * (width / 2))?;
-                    let horizontal_line: String = std::iter::repeat("━").take(width as usize / 2).collect();
-                    print!("┏{horizontal_line}");
+                    stdout.queue(cursor::MoveTo(horizontal_bound, y_index))?;
+                    let (preview_str, ignore_overflow) =
+                        curr_file.as_preview_string(height * (width - horizontal_bound))?;
 
                     if ignore_overflow {
-                        stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
+                        stdout.queue(cursor::MoveTo(horizontal_bound, y_index + 1))?;
                         print!("{}", preview_str);
-                        stdout.queue(cursor::MoveTo(width / 2, y_index + 2))?;
-                        print!("┗{horizontal_line}");
+                        stdout.queue(cursor::MoveTo(horizontal_bound, y_index + 2))?;
                         stdout.flush()?;
                         return Ok(());
                     } else {
@@ -148,18 +201,17 @@ impl AppState {
 
                             for line in LinesWithEndings::from(&preview_str) {
                                 y_index += 1;
-                                stdout.queue(cursor::MoveTo(width / 2, y_index))?;
+                                stdout
+                                    .queue(cursor::MoveTo(horizontal_bound + padding, y_index))?;
 
-                                let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).expect("range");
+                                let ranges: Vec<(Style, &str)> =
+                                    h.highlight_line(line, &ps).expect("range");
                                 let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
 
-                                print!("┃ {}{}", escaped, ResetColor);
+                                print!("{}{}", escaped, ResetColor);
                                 stdout.flush()?;
 
-                                if y_index == height - 2 {
-                                    stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
-                                    print!("┗{horizontal_line}");
-                                    stdout.flush()?;
+                                if y_index == height - 3 {
                                     return Ok(());
                                 }
                             }
@@ -168,8 +220,7 @@ impl AppState {
                         }
                     }
 
-                    stdout.queue(cursor::MoveTo(width / 2, y_index + 1))?;
-                    print!("┗{horizontal_line}");
+                    stdout.queue(cursor::MoveTo(horizontal_bound, y_index + 1))?;
                     stdout.flush()?;
                     Ok(())
                 } else {

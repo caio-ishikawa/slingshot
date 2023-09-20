@@ -2,7 +2,6 @@ use crossterm::style::Color;
 use phf::phf_map;
 use syntect::highlighting::Color as SyntectColor;
 
-
 pub static ICONS: phf::Map<&'static str, &'static str> = phf_map! {
     "py" => " ",
     "rs" => " ",
@@ -55,9 +54,8 @@ pub const BACKGROUND_COLOR: SyntectColor = SyntectColor {
 pub const DIVIDER_COLOR: Color = Color::Rgb {
     r: 0xa6,
     g: 0xe3,
-    b: 0xa1
+    b: 0xa1,
 };
 
 pub const FILE_ICON: &str = "󰈔 ";
 pub const FOLDER_ICON: &str = " ";
-

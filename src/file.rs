@@ -81,7 +81,7 @@ impl FileData {
         let mut output = String::new();
         let bytes = self.as_bytes()?;
         for i in 0..char_limit {
-            if let Some(byte) = bytes.get(i as usize) { 
+            if let Some(byte) = bytes.get(i as usize) {
                 output.push(*byte as char);
             } else {
                 return Ok((output, false));
@@ -177,17 +177,28 @@ pub fn filter_file_data(files: Cow<Vec<FileData>>, search_term: &str) -> Vec<Fil
     output
 }
 
-pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std::io::Stdout) {
+// Prints file data and returns length of longest file name, to determine the horizontal bounds for
+// the file preview
+pub fn print_file_data(
+    paths: Cow<Vec<FileData>>,
+    index: usize,
+    stdout: &mut std::io::Stdout,
+) -> Result<u16, Box<dyn Error>> {
     let mut line_index = 2;
-    let (_, height) = terminal::size().unwrap();
+    let (_, height) = terminal::size()?;
     let t_height = cmp::max(height, 1);
     let height_limit = t_height - 1;
+    let mut longest_file_name: u16 = 0;
 
-    stdout.queue(cursor::MoveToRow(1)).unwrap();
+    stdout.queue(cursor::MoveToRow(1))?;
     for (i, path) in paths.iter().enumerate() {
-        stdout.queue(cursor::MoveToRow(line_index)).unwrap();
+        let count = path.shortname.chars().count() as u16;
+        if count > longest_file_name {
+            longest_file_name = count;
+        }
+        stdout.queue(cursor::MoveToRow(line_index))?;
         if i == index && i <= height_limit as usize {
-            print!("{}{}", path.icon, ResetColor);
+            print!("  {}{}", path.icon, ResetColor);
 
             let fg_color = if path.marked_for_deletion {
                 styles::ERR
@@ -203,7 +214,7 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 ResetColor
             );
         } else if path.marked_for_deletion && i <= height_limit as usize {
-            print!("{}{}", path.icon, ResetColor);
+            print!("  {}{}", path.icon, ResetColor);
             print!(
                 "{}{}{}",
                 SetForegroundColor(styles::ERR),
@@ -211,7 +222,7 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
                 ResetColor
             );
         } else if i <= height_limit as usize {
-            print!("{}", path.icon);
+            print!("  {}", path.icon);
             print!(
                 "{}{}{}",
                 SetForegroundColor(styles::LIGHT_CONTRAST),
@@ -220,8 +231,10 @@ pub fn print_file_data(paths: Cow<Vec<FileData>>, index: usize, stdout: &mut std
             );
         }
         line_index += 1;
-        stdout.queue(cursor::MoveToColumn(0)).unwrap();
+        stdout.queue(cursor::MoveToColumn(0))?;
     }
+
+    Ok(longest_file_name)
 }
 
 #[cfg(test)]
